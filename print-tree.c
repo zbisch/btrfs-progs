@@ -62,6 +62,25 @@ static void print_dir_item_type(struct extent_buffer *eb,
 	}
 }
 
+static const char* pretty_owner(u64 owner)
+{
+	static char buf[32];
+
+	switch (owner) {
+	case BTRFS_ROOT_TREE_OBJECTID: return "ROOT_TREE(1)";
+	case BTRFS_EXTENT_TREE_OBJECTID: return "EXTENT_TREE(2)";
+	case BTRFS_CHUNK_TREE_OBJECTID: return "CHUNK_TREE(3)";
+	case BTRFS_DEV_TREE_OBJECTID: return "DEV_TREE(4)";
+	case BTRFS_FS_TREE_OBJECTID: return "FS_TREE(5)";
+	case BTRFS_CSUM_TREE_OBJECTID: return "CSUM_TREE(7)";
+	case BTRFS_QUOTA_TREE_OBJECTID: return "QUOTA_TREE(8)";
+	case BTRFS_UUID_TREE_OBJECTID: return "UUID_TREE(9)";
+	case BTRFS_TREE_RELOC_OBJECTID: return "TREE_RELOC(-8)";
+	case BTRFS_DATA_RELOC_TREE_OBJECTID: return "DATA_RELOC_TREE(-9)";
+	default: snprintf(buf, sizeof(buf), "%llu", (unsigned long long)owner); return buf;
+	}
+}
+
 static int print_dir_item(struct extent_buffer *eb, struct btrfs_item *item,
 			  struct btrfs_dir_item *di)
 {
@@ -164,9 +183,9 @@ static void print_chunk(struct extent_buffer *eb, struct btrfs_chunk *chunk)
 {
 	int num_stripes = btrfs_chunk_num_stripes(eb, chunk);
 	int i;
-	printf("\t\tchunk length %llu owner %llu type %llu num_stripes %d\n",
+	printf("\t\tchunk length %llu owner %s type %llu num_stripes %d\n",
 	       (unsigned long long)btrfs_chunk_length(eb, chunk),
-	       (unsigned long long)btrfs_chunk_owner(eb, chunk),
+	       pretty_owner(btrfs_chunk_owner(eb, chunk)),
 	       (unsigned long long)btrfs_chunk_type(eb, chunk),
 	       num_stripes);
 	for (i = 0 ; i < num_stripes ; i++) {
@@ -302,8 +321,8 @@ static void print_extent_item(struct extent_buffer *eb, int slot, int metadata)
 		offset = btrfs_extent_inline_ref_offset(eb, iref);
 		switch (type) {
 		case BTRFS_TREE_BLOCK_REF_KEY:
-			printf("\t\ttree block backref root %llu\n",
-			       (unsigned long long)offset);
+			printf("\t\ttree block backref root %s\n",
+			       pretty_owner(offset));
 			break;
 		case BTRFS_SHARED_BLOCK_REF_KEY:
 			printf("\t\tshared block backref parent %llu\n",
@@ -311,9 +330,9 @@ static void print_extent_item(struct extent_buffer *eb, int slot, int metadata)
 			break;
 		case BTRFS_EXTENT_DATA_REF_KEY:
 			dref = (struct btrfs_extent_data_ref *)(&iref->offset);
-			printf("\t\textent data backref root %llu "
+			printf("\t\textent data backref root %s "
 			       "objectid %llu offset %llu count %u\n",
-			       (unsigned long long)btrfs_extent_data_ref_root(eb, dref),
+			       pretty_owner(btrfs_extent_data_ref_root(eb, dref)),
 			       (unsigned long long)btrfs_extent_data_ref_objectid(eb, dref),
 			       (unsigned long long)btrfs_extent_data_ref_offset(eb, dref),
 			       btrfs_extent_data_ref_count(eb, dref));
@@ -723,11 +742,11 @@ void btrfs_print_leaf(struct btrfs_root *root, struct extent_buffer *l)
 	u64 objectid;
 	u32 type;
 
-	printf("leaf %llu items %d free space %d generation %llu owner %llu\n",
+	printf("leaf %llu items %d free space %d generation %llu owner %s\n",
 		(unsigned long long)btrfs_header_bytenr(l), nr,
 		btrfs_leaf_free_space(root, l),
 		(unsigned long long)btrfs_header_generation(l),
-		(unsigned long long)btrfs_header_owner(l));
+		pretty_owner(btrfs_header_owner(l)));
 	print_uuids(l);
 	fflush(stdout);
 	for (i = 0 ; i < nr ; i++) {
@@ -801,9 +820,9 @@ void btrfs_print_leaf(struct btrfs_root *root, struct extent_buffer *l)
 			break;
 		case BTRFS_EXTENT_DATA_REF_KEY:
 			dref = btrfs_item_ptr(l, i, struct btrfs_extent_data_ref);
-			printf("\t\textent data backref root %llu "
+			printf("\t\textent data backref root %s "
 			       "objectid %llu offset %llu count %u\n",
-			       (unsigned long long)btrfs_extent_data_ref_root(l, dref),
+			       pretty_owner(btrfs_extent_data_ref_root(l, dref)),
 			       (unsigned long long)btrfs_extent_data_ref_objectid(l, dref),
 			       (unsigned long long)btrfs_extent_data_ref_offset(l, dref),
 			       btrfs_extent_data_ref_count(l, dref));
@@ -948,12 +967,12 @@ void btrfs_print_tree(struct btrfs_root *root, struct extent_buffer *eb, int fol
 		btrfs_print_leaf(root, eb);
 		return;
 	}
-	printf("node %llu level %d items %d free %u generation %llu owner %llu\n",
+	printf("node %llu level %d items %d free %u generation %llu owner %s\n",
 	       (unsigned long long)eb->start,
 	        btrfs_header_level(eb), nr,
 		(u32)BTRFS_NODEPTRS_PER_BLOCK(root) - nr,
 		(unsigned long long)btrfs_header_generation(eb),
-		(unsigned long long)btrfs_header_owner(eb));
+		pretty_owner(btrfs_header_owner(eb)));
 	print_uuids(eb);
 	fflush(stdout);
 	size = btrfs_level_size(root, btrfs_header_level(eb) - 1);
@@ -978,9 +997,9 @@ void btrfs_print_tree(struct btrfs_root *root, struct extent_buffer *eb, int fol
 					     size,
 					     btrfs_node_ptr_generation(eb, i));
 		if (!next) {
-			fprintf(stderr, "failed to read %llu in tree %llu\n",
+			fprintf(stderr, "failed to read %llu in tree %s\n",
 				(unsigned long long)btrfs_node_blockptr(eb, i),
-				(unsigned long long)btrfs_header_owner(eb));
+				pretty_owner(btrfs_header_owner(eb)));
 			continue;
 		}
 		if (btrfs_is_leaf(next) &&
