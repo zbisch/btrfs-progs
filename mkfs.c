@@ -276,7 +276,9 @@ static void print_usage(void)
 	fprintf(stderr, "options:\n");
 	fprintf(stderr, "\t -A --alloc-start the offset to start the FS\n");
 	fprintf(stderr, "\t -b --byte-count total number of bytes in the FS\n");
-	fprintf(stderr, "\t -d --data data profile, raid0, raid1, raid5, raid6, raid10, dup or single\n");
+	fprintf(stderr, "\t -d --data data profile: <n>c[d][<m>s[<p>p]]\n");
+	fprintf(stderr, "\t\tfor n copies (d=reduced dev redundancy), m stripes, p parity stripes\n");
+	fprintf(stderr, "\t\tor raid0, raid1, raid10, dup or single (deprecated)\n");
 	fprintf(stderr, "\t -f --force force overwrite of existing filesystem\n");
 	fprintf(stderr, "\t -l --leafsize size of btree leaves\n");
 	fprintf(stderr, "\t -L --label set a label\n");
@@ -300,8 +302,36 @@ static void print_version(void)
 	exit(0);
 }
 
-static u64 parse_profile(char *s)
+static u64 make_profile(int copies, int dup, int stripes, int parity)
 {
+	if(copies == 1 && !dup && stripes == 0 && parity == 0)
+		return 0;
+	else if(copies == 2 && dup && stripes == 0 && parity == 0)
+		return BTRFS_BLOCK_GROUP_DUP;
+	else if(copies == 2 && !dup && stripes == 0 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID1;
+	else if(copies == 2 && !dup && stripes == -1 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID10;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID0;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 1)
+		return BTRFS_BLOCK_GROUP_RAID5;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 2)
+		return BTRFS_BLOCK_GROUP_RAID6;
+
+	return (u64)-1;
+}
+
+static u64 parse_profile(const char *s)
+{
+	char *pos, *parse_end;
+	int copies = 1;
+	int stripes = 0;
+	int parity = 0;
+	int dup = 0;
+	u64 profile = (u64)-1;
+
+	/* Look for exact match with historical forms first */
 	if (strcmp(s, "raid0") == 0) {
 		return BTRFS_BLOCK_GROUP_RAID0;
 	} else if (strcmp(s, "raid1") == 0) {
@@ -316,12 +346,54 @@ static u64 parse_profile(char *s)
 		return BTRFS_BLOCK_GROUP_DUP;
 	} else if (strcmp(s, "single") == 0) {
 		return 0;
-	} else {
-		fprintf(stderr, "Unknown profile %s\n", s);
-		print_usage();
 	}
-	/* not reached */
-	return 0;
+
+	/* Attempt to parse new ncmspp form */
+	/* <n>c is required and n must be an unsigned decimal number */
+	copies = strtoul(s, &parse_end, 10);
+	if(parse_end == s || (*parse_end != 'c' && *parse_end != 'C'))
+		goto unknown;
+
+	/* c may be followed by d to indicate non-redundant/DUP */
+	pos = parse_end + 1;
+	if(*pos == 'd' || *pos == 'D') {
+		dup = 1;
+		pos++;
+	}
+	if(*pos == 0)
+		goto done;
+
+	/* <m>s is optional, and <m> may be an integer, or a literal "x" */
+	if(*pos == 'x' || *pos == 'X') {
+		stripes = -1;
+		parse_end = pos+1;
+	} else {
+		stripes = strtoul(pos, &parse_end, 10);
+	}
+	if(parse_end == pos || (*parse_end != 's' && *parse_end != 'S'))
+		goto unknown;
+
+	pos = parse_end + 1;
+	if(*pos == 0)
+		goto done;
+
+	/* <p>p is optional, and p must be an integer */
+	parity = strtoul(pos, &parse_end, 10);
+	if(parse_end == pos || (*parse_end != 'p' && *parse_end != 'P'))
+		goto unknown;
+	pos = parse_end + 1;
+	if(*pos != 0)
+		goto unknown;
+
+done:
+	profile = make_profile(copies, dup, stripes, parity);
+	if(profile == (u64)-1)
+		fprintf(stderr, "Unknown or unavailable profile '%s'\n", s);
+	return profile;
+
+unknown:
+	fprintf(stderr, "Unparseable profile '%s'\n", s);
+	return (u64)-1;
 }
 
 static char *parse_label(char *input)
@@ -1138,7 +1210,7 @@ static const struct btrfs_fs_feature {
 	{ "extref", BTRFS_FEATURE_INCOMPAT_EXTENDED_IREF,
 		"increased hardlink limit per file to 65536" },
 	{ "raid56", BTRFS_FEATURE_INCOMPAT_RAID56,
-		"raid56 extended format" },
+		"parity raid (raid56) extended format" },
 	{ "skinny-metadata", BTRFS_FEATURE_INCOMPAT_SKINNY_METADATA,
 		"reduced-size metadata extent refs" },
 	{ "no-holes", BTRFS_FEATURE_INCOMPAT_NO_HOLES,
@@ -1492,6 +1564,11 @@ int main(int ac, char **av)
 	printf("See %s for more information.\n\n", PACKAGE_URL);
 
 	dev_cnt--;
+
+	if (data_profile == (u64)-1 || metadata_profile == (u64)-1) {
+		fprintf(stderr, "Cannot handle requested replication profile. Aborting\n");
+		exit(1);
+	}
 
 	if (!source_dir_set) {
 		/*
