@@ -25,6 +25,8 @@ btrfs \- control a btrfs filesystem
 [-s \fIstart\fR] [-t \fIsize\fR] -[vf] <\fIfile\fR>|<\fIdir\fR> \
 [<\fIfile\fR>|<\fIdir\fR>...]
 .PP
+\fBbtrfs\fP \fBfilesystem df\fP [-r|-e]\fI <path> \fP
+.PP
 \fBbtrfs\fP \fBfilesystem sync\fP\fI <path> \fP
 .PP
 \fBbtrfs\fP \fBfilesystem resize\fP\fI [devid:][+/\-]<size>[gkm]|[devid:]max <filesystem>\fP
@@ -215,6 +217,20 @@ like \fBk\fP for 1 KBytes, \fBm\fP for 1 MBytes...
 NOTE: defragmenting with kernels up to 2.6.37 will unlink COW-ed copies of data,
 don't use it if you use snapshots, have de-duplicated your data or made
 copies with \fBcp --reflink\fP.
+.TP
+
+\fBfilesystem df\fR [-r|-e] \fI<path>\fR
+Show usage information for the filesystem identified by \fI<path>\fR.
+
+\fB-r, --raid\fP Use old-style "RAID-n" terminology to show replication types
+
+\fB-e, --explain\fP Explain the new-style NcMsPp terminology in more
+detail: Nc shows the number of copies of data; a trailing "d"
+indicates reduced device redundancy (e.g. more than one of the copies
+may live on a single device), Ms shows the number of data stripes per
+copy (with "Xs" indicating as many as will fit across the available
+devices), and Pp shows the number of parity stripes.
+
 .TP
 
 \fBfilesystem sync\fR\fI <path> \fR

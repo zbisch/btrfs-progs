@@ -37,7 +37,29 @@ mkfs.btrfs uses all the available storage for the filesystem.
 .TP
 \fB\-d\fR, \fB\-\-data \fItype\fR
 Specify how the data must be spanned across the devices specified. Valid
-values are raid0, raid1, raid5, raid6, raid10 or single.
+values are of the form <n>c[d][<m>s[<p>p]], where <n> is the number of copies
+of data, <m> is the number of stripes per copy, and <p> is the number of parity
+stripes. The <m> parameter must (currently) be a literal "X", indicating that
+as many stripes as possible will be used. The letter "d" may be added to the
+number of copies, to indicate non-redundant copies (e.g. on the same device).
+
+The following deprecated values may also be used:
+.RS 16
+.P
+single	1c
+.P
+raid0	1cXs
+.P
+raid1	2c
+.P
+dup		2cd
+.P
+raid10	2cXsS
+.P
+raid5	1cXs1p
+.P
+raid6	1cXs2p
+.RS -16
 .TP
 \fB\-f\fR, \fB\-\-force\fR
 Force overwrite when an existing filesystem is detected on the device.
