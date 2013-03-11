@@ -1795,6 +1795,100 @@ u64 parse_size(char *s)
 	return ret;
 }
 
+static u64 make_profile(int copies, int dup, int stripes, int parity)
+{
+	if(copies == 1 && !dup && stripes == 0 && parity == 0)
+		return 0;
+	else if(copies == 2 && dup && stripes == 0 && parity == 0)
+		return BTRFS_BLOCK_GROUP_DUP;
+	else if(copies == 2 && !dup && stripes == 0 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID1;
+	else if(copies == 2 && !dup && stripes == -1 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID10;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 0)
+		return BTRFS_BLOCK_GROUP_RAID0;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 1)
+		return BTRFS_BLOCK_GROUP_RAID5;
+	else if(copies == 1 && !dup && stripes == -1 && parity == 2)
+		return BTRFS_BLOCK_GROUP_RAID6;
+
+	return (u64)-1;
+}
+
+u64 parse_profile(const char *s)
+{
+	char *pos, *parse_end;
+	int copies = 1;
+	int stripes = 0;
+	int parity = 0;
+	int dup = 0;
+	u64 profile = (u64)-1;
+
+	/* Look for exact match with historical forms first */
+	if (strcmp(s, "raid0") == 0) {
+		return BTRFS_BLOCK_GROUP_RAID0;
+	} else if (strcmp(s, "raid1") == 0) {
+		return BTRFS_BLOCK_GROUP_RAID1;
+	} else if (strcmp(s, "raid5") == 0) {
+		return BTRFS_BLOCK_GROUP_RAID5;
+	} else if (strcmp(s, "raid6") == 0) {
+		return BTRFS_BLOCK_GROUP_RAID6;
+	} else if (strcmp(s, "raid10") == 0) {
+		return BTRFS_BLOCK_GROUP_RAID10;
+	} else if (strcmp(s, "dup") == 0) {
+		return BTRFS_BLOCK_GROUP_DUP;
+	} else if (strcmp(s, "single") == 0) {
+		return 0;
+	}
+
+	/* Attempt to parse new ncmspp form */
+	/* <n>c is required and n must be an unsigned decimal number */
+	copies = strtoul(s, &parse_end, 10);
+	if(parse_end == s || (*parse_end != 'c' && *parse_end != 'C'))
+		goto unknown;
+
+	/* c may be followed by d to indicate non-redundant/DUP */
+	pos = parse_end + 1;
+	if(*pos == 'd' || *pos == 'D') {
+		dup = 1;
+		pos++;
+	}
+	if(*pos == 0)
+		goto done;
+
+	/* <m>s is optional, and <m> may be an integer, or a literal "x" */
+	if(*pos == 'x' || *pos == 'X') {
+		stripes = -1;
+		parse_end = pos+1;
+	} else {
+		stripes = strtoul(pos, &parse_end, 10);
+	}
+	if(parse_end == pos || (*parse_end != 's' && *parse_end != 'S'))
+		goto unknown;
+
+	pos = parse_end + 1;
+	if(*pos == 0)
+		goto done;
+
+	/* <p>p is optional, and p must be an integer */
+	parity = strtoul(pos, &parse_end, 10);
+	if(parse_end == pos || (*parse_end != 'p' && *parse_end != 'P'))
+		goto unknown;
+	pos = parse_end + 1;
+	if(*pos != 0)
+		goto unknown;
+
+done:
+	profile = make_profile(copies, dup, stripes, parity);
+	if(profile == (u64)-1)
+		fprintf(stderr, "Unknown or unavailable profile '%s'\n", s);
+	return profile;
+
+unknown:
+	fprintf(stderr, "Unparseable profile '%s'\n", s);
+	return (u64)-1;
+}
+
 int open_file_or_dir3(const char *fname, DIR **dirstream, int open_flags)
 {
 	int ret;
