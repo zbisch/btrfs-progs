@@ -47,6 +47,7 @@ char *pretty_sizes(u64 size);
 int get_mountpt(char *dev, char *mntpt, size_t size);
 int btrfs_scan_block_devices(int run_ioctl);
 u64 parse_size(char *s);
+u64 parse_profile(const char* s);
 int open_file_or_dir(const char *fname);
 int get_device_info(int fd, u64 devid,
 		    struct btrfs_ioctl_dev_info_args *di_args);
