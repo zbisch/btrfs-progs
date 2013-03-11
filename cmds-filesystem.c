@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <uuid/uuid.h>
@@ -133,6 +134,8 @@ static const char * const cmd_filesystem_df_usage[] = {
 	"-m|--mbytes        show sizes in MiB, or MB with --si",
 	"-g|--gbytes        show sizes in GiB, or GB with --si",
 	"-t|--tbytes        show sizes in TiB, or TB with --si",
+	"-r                 use old-style RAID-n terminology",
+	"-e                 explain new-style NcMsPp terminology",
        NULL
 };
 
@@ -184,15 +187,129 @@ static int get_df(int fd, struct btrfs_ioctl_space_args **sargs_ret)
 	return 0;
 }
 
-static void print_df(struct btrfs_ioctl_space_args *sargs, unsigned unit_mode)
+#define RAID_NAMES_NEW		0
+#define RAID_NAMES_OLD		1
+#define RAID_NAMES_LONG		2
+
+static int write_raid_name(char* buffer, int size, u64 flags, int raid_format)
+{
+	int copies, stripes, parity;
+	int out;
+	int written = 0;
+
+	if (raid_format == RAID_NAMES_OLD) {
+		if (flags & BTRFS_BLOCK_GROUP_RAID0) {
+			return snprintf(buffer, size, "%s", "RAID0");
+		} else if (flags & BTRFS_BLOCK_GROUP_RAID1) {
+			return snprintf(buffer, size, "%s", "RAID1");
+		} else if (flags & BTRFS_BLOCK_GROUP_DUP) {
+			return snprintf(buffer, size, "%s", "DUP");
+		} else if (flags & BTRFS_BLOCK_GROUP_RAID10) {
+			return snprintf(buffer, size, "%s", "RAID10");
+		} else if (flags & BTRFS_BLOCK_GROUP_RAID5) {
+			return snprintf(buffer, size, "%s", "RAID5");
+		} else if (flags & BTRFS_BLOCK_GROUP_RAID6) {
+			return snprintf(buffer, size, "%s", "RAID6");
+		}
+		return 0;
+	}
+
+	if (flags & (BTRFS_BLOCK_GROUP_RAID1
+				 | BTRFS_BLOCK_GROUP_RAID10
+				 | BTRFS_BLOCK_GROUP_DUP)) {
+		copies = 2;
+	} else {
+		copies = 1;
+	}
+
+	if (raid_format == RAID_NAMES_LONG)
+		out = snprintf(buffer, size, "%d copies", copies);
+	else
+		out = snprintf(buffer, size, "%dc", copies);
+	if (size < out)
+		return written + size;
+	written += out;
+	size -= out;
+
+	if (flags & BTRFS_BLOCK_GROUP_DUP) {
+		if (raid_format == RAID_NAMES_LONG)
+			out = snprintf(buffer+written, size, " low redundancy");
+		else
+			out = snprintf(buffer+written, size, "d");
+		if (size < out)
+			return written + size;
+		written += out;
+		size -= out;
+	}
+
+	if (flags & (BTRFS_BLOCK_GROUP_RAID0
+				 | BTRFS_BLOCK_GROUP_RAID10
+				 | BTRFS_BLOCK_GROUP_RAID5
+				 | BTRFS_BLOCK_GROUP_RAID6)) {
+		stripes = -1;
+	} else {
+		stripes = 0;
+	}
+
+	if (stripes == -1) {
+		if (raid_format == RAID_NAMES_LONG)
+			out = snprintf(buffer+written, size, ", fit stripes");
+		else
+			out = snprintf(buffer+written, size, "Xs");
+	} else if (stripes == 0) {
+		out = 0;
+	} else {
+		if (raid_format == RAID_NAMES_LONG)
+			out = snprintf(buffer+written, size, ", %d stripes", stripes);
+		else
+			out = snprintf(buffer+written, size, "%ds", stripes);
+	}
+
+	if (size < out)
+		return written + size;
+	written += out;
+	size -= out;
+
+	if (flags & BTRFS_BLOCK_GROUP_RAID5) {
+		parity = 1;
+	} else if (flags & BTRFS_BLOCK_GROUP_RAID6) {
+		parity = 2;
+	} else {
+		parity = 0;
+	}
+
+	if (parity == 0) {
+		out = 0;
+	} else {
+		if (raid_format == RAID_NAMES_LONG)
+			out = snprintf(buffer+written, size, ", %d parity", parity);
+		else
+			out = snprintf(buffer+written, size, "%dp", parity);
+	}
+
+	if (size < out)
+		return written + size;
+	written += out;
+	size -= out;
+
+	return written;
+}
+
+static void print_df(struct btrfs_ioctl_space_args *sargs, unsigned unit_mode,
+		unsigned raid_format)
 {
 	u64 i;
 	struct btrfs_ioctl_space_info *sp = sargs->spaces;
 
 	for (i = 0; i < sargs->total_spaces; i++, sp++) {
+		char profile[64];
+
+		write_raid_name(profile, sizeof(profile), sp->flags,
+				raid_format);
 		printf("%s, %s: total=%s, used=%s\n",
 			btrfs_group_type_str(sp->flags),
-			btrfs_group_profile_str(sp->flags),
+			/* btrfs_group_profile_str(sp->flags), */
+			profile,
 			pretty_size_mode(sp->total_bytes, unit_mode),
 			pretty_size_mode(sp->used_bytes, unit_mode));
 	}
@@ -206,6 +323,7 @@ static int cmd_filesystem_df(int argc, char **argv)
 	char *path;
 	DIR *dirstream = NULL;
 	unsigned unit_mode = UNITS_DEFAULT;
+	int raid_format = RAID_NAMES_NEW;
 
 	while (1) {
 		int long_index;
@@ -219,9 +337,11 @@ static int cmd_filesystem_df(int argc, char **argv)
 			{ "iec", no_argument, NULL, GETOPT_VAL_IEC},
 			{ "human-readable", no_argument, NULL,
 				GETOPT_VAL_HUMAN_READABLE},
+			{ "raid",    no_argument, NULL, 'r' },
+			{ "explain", no_argument, NULL, 'e' },
 			{ NULL, 0, NULL, 0 }
 		};
-		int c = getopt_long(argc, argv, "bhHkmgt", long_options,
+		int c = getopt_long(argc, argv, "bhHkmgtre", long_options,
 					&long_index);
 		if (c < 0)
 			break;
@@ -240,6 +360,12 @@ static int cmd_filesystem_df(int argc, char **argv)
 			break;
 		case 't':
 			units_set_base(&unit_mode, UNITS_TBYTES);
+			break;
+		case 'r':
+			raid_format = RAID_NAMES_OLD;
+			break;
+		case 'e':
+			raid_format = RAID_NAMES_LONG;
 			break;
 		case GETOPT_VAL_HUMAN_READABLE:
 		case 'h':
@@ -272,7 +398,7 @@ static int cmd_filesystem_df(int argc, char **argv)
 	ret = get_df(fd, &sargs);
 
 	if (ret == 0) {
-		print_df(sargs, unit_mode);
+		print_df(sargs, unit_mode, raid_format);
 		free(sargs);
 	} else {
 		fprintf(stderr, "ERROR: get_df failed %s\n", strerror(-ret));
