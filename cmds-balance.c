@@ -42,23 +42,16 @@ static const char balance_cmd_group_info[] =
 
 static int parse_one_profile(const char *profile, u64 *flags)
 {
-	if (!strcmp(profile, "raid0")) {
-		*flags |= BTRFS_BLOCK_GROUP_RAID0;
-	} else if (!strcmp(profile, "raid1")) {
-		*flags |= BTRFS_BLOCK_GROUP_RAID1;
-	} else if (!strcmp(profile, "raid10")) {
-		*flags |= BTRFS_BLOCK_GROUP_RAID10;
-	} else if (!strcmp(profile, "raid5")) {
-		*flags |= BTRFS_BLOCK_GROUP_RAID5;
-	} else if (!strcmp(profile, "raid6")) {
-		*flags |= BTRFS_BLOCK_GROUP_RAID6;
-	} else if (!strcmp(profile, "dup")) {
-		*flags |= BTRFS_BLOCK_GROUP_DUP;
-	} else if (!strcmp(profile, "single")) {
-		*flags |= BTRFS_AVAIL_ALLOC_BIT_SINGLE;
-	} else {
+	u64 result;
+
+	result = parse_profile(profile);
+	if (result == (u64)-1) {
 		fprintf(stderr, "Unknown profile '%s'\n", profile);
 		return 1;
+	} else if (result == 0) {
+		*flags |= BTRFS_AVAIL_ALLOC_BIT_SINGLE;
+	} else {
+		*flags |= result;
 	}
 
 	return 0;
