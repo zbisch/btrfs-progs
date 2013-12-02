@@ -650,10 +650,14 @@ insert:
 	return root;
 }
 
+struct root_obj {
+	u64 objectid;
+};
+
 static int btrfs_fs_roots_compare_objectids(struct rb_node *node,
 					    void *data)
 {
-	u64 objectid = *((u64 *)data);
+	u64 objectid = ((struct root_obj *)data)->objectid;
 	struct btrfs_root *root;
 
 	root = rb_entry(node, struct btrfs_root, rb_node);
@@ -669,9 +673,11 @@ static int btrfs_fs_roots_compare_roots(struct rb_node *node1,
 					struct rb_node *node2)
 {
 	struct btrfs_root *root;
+	struct root_obj obj;
 
 	root = rb_entry(node2, struct btrfs_root, rb_node);
-	return btrfs_fs_roots_compare_objectids(node1, (void *)&root->objectid);
+	obj.objectid = root->objectid;
+	return btrfs_fs_roots_compare_objectids(node1, (void *)&obj);
 }
 
 struct btrfs_root *btrfs_read_fs_root(struct btrfs_fs_info *fs_info,
@@ -680,6 +686,7 @@ struct btrfs_root *btrfs_read_fs_root(struct btrfs_fs_info *fs_info,
 	struct btrfs_root *root;
 	struct rb_node *node;
 	int ret;
+	struct root_obj obj;
 
 	if (location->objectid == BTRFS_ROOT_TREE_OBJECTID)
 		return fs_info->tree_root;
@@ -695,7 +702,8 @@ struct btrfs_root *btrfs_read_fs_root(struct btrfs_fs_info *fs_info,
 	BUG_ON(location->objectid == BTRFS_TREE_RELOC_OBJECTID ||
 	       location->offset != (u64)-1);
 
-	node = rb_search(&fs_info->fs_root_tree, (void *)&location->objectid,
+	obj.objectid = location->objectid;
+	node = rb_search(&fs_info->fs_root_tree, (void *)&obj,
 			 btrfs_fs_roots_compare_objectids, NULL);
 	if (node)
 		return container_of(node, struct btrfs_root, rb_node);
