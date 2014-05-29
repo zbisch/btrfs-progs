@@ -6806,8 +6806,7 @@ int cmd_check(int argc, char **argv)
 	u64 num;
 	int option_index = 0;
 	int init_csum_tree = 0;
-	enum btrfs_open_ctree_flags ctree_flags =
-		OPEN_CTREE_PARTIAL | OPEN_CTREE_EXCLUSIVE;
+	enum btrfs_open_ctree_flags ctree_flags = OPEN_CTREE_EXCLUSIVE;
 
 	while(1) {
 		int c;
@@ -6869,6 +6868,10 @@ int cmd_check(int argc, char **argv)
 		ret = -EBUSY;
 		goto err_out;
 	}
+
+	/* only allow partial opening under repair mode */
+	if (repair)
+		ctree_flags |= OPEN_CTREE_PARTIAL;
 
 	info = open_ctree_fs_info(argv[optind], bytenr, 0, ctree_flags);
 	if (!info) {
