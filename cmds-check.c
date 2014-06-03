@@ -6933,10 +6933,18 @@ int cmd_check(int argc, char **argv)
 	uuid_unparse(info->super_copy->fsid, uuidbuf);
 	printf("Checking filesystem on %s\nUUID: %s\n", argv[optind], uuidbuf);
 
-	if (!extent_buffer_uptodate(info->tree_root->node) ||
-	    !extent_buffer_uptodate(info->dev_root->node) ||
-	    !extent_buffer_uptodate(info->chunk_root->node)) {
-		fprintf(stderr, "Critical roots corrupted, unable to fsck the FS\n");
+	if (!extent_buffer_uptodate(info->tree_root->node)) {
+		fprintf(stderr, "Critical root (tree_root) corrupted, unable to continue\n");
+		ret = -EIO;
+		goto close_out;
+	}
+	if (!extent_buffer_uptodate(info->dev_root->node)) {
+		fprintf(stderr, "Critical root (dev_root) corrupted, unable to continue\n");
+		ret = -EIO;
+		goto close_out;
+	}
+	if(!extent_buffer_uptodate(info->chunk_root->node)) {
+		fprintf(stderr, "Critical root (chunk_root) corrupted, unable to continue\n");
 		ret = -EIO;
 		goto close_out;
 	}
@@ -6959,10 +6967,10 @@ int cmd_check(int argc, char **argv)
 		}
 
 		if (init_csum_tree) {
-			fprintf(stderr, "Reinit crc root\n");
+			fprintf(stderr, "Reinitialize csum_root\n");
 			ret = btrfs_fsck_reinit_root(trans, info->csum_root, 0);
 			if (ret) {
-				fprintf(stderr, "crc root initialization failed\n");
+				fprintf(stderr, "ERROR: csum_root initialization failed\n");
 				ret = -EIO;
 				goto close_out;
 			}
@@ -6976,12 +6984,12 @@ int cmd_check(int argc, char **argv)
 			goto close_out;
 	}
 	if (!extent_buffer_uptodate(info->extent_root->node)) {
-		fprintf(stderr, "Critical roots corrupted, unable to fsck the FS\n");
+		fprintf(stderr, "Critical root (extent_root) corrupted, unable to continue\n");
 		ret = -EIO;
 		goto close_out;
 	}
 	if (!extent_buffer_uptodate(info->csum_root->node)) {
-		fprintf(stderr, "Checksum root corrupted, rerun with --init-csum-tree option\n");
+		fprintf(stderr, "Checksum root (csum_root) corrupted, unable to continue\n");
 		ret = -EIO;
 		goto close_out;
 	}
