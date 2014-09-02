@@ -1133,9 +1133,11 @@ static struct btrfs_fs_info *__open_ctree_fd(int fp, const char *path,
 			   btrfs_header_chunk_tree_uuid(eb),
 			   BTRFS_UUID_SIZE);
 
-	ret = btrfs_setup_all_roots(fs_info, root_tree_bytenr, flags);
-	if (ret)
-		goto out_failed;
+	if (!(flags & OPEN_CTREE_NO_SETUP_ROOTS)) {
+		ret = btrfs_setup_all_roots(fs_info, root_tree_bytenr, flags);
+		if (ret)
+			goto out_failed;
+	}
 
 	return fs_info;
 
