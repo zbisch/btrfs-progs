@@ -222,7 +222,8 @@ again:
 	return 0;
 }
 
-static int copy_one_inline(int fd, struct btrfs_path *path, u64 pos)
+static int copy_one_inline(int fd, struct btrfs_path *path, u64 pos,
+			   u64 *bytes_written)
 {
 	struct extent_buffer *leaf = path->nodes[0];
 	struct btrfs_file_extent_item *fi;
@@ -246,6 +247,7 @@ static int copy_one_inline(int fd, struct btrfs_path *path, u64 pos)
 	compress = btrfs_file_extent_compression(leaf, fi);
 	if (compress == BTRFS_COMPRESS_NONE) {
 		done = pwrite(fd, buf, len, pos);
+		*bytes_written += done;
 		if (done < len) {
 			fprintf(stderr, "Short inline write, wanted %d, did "
 				"%zd: %d\n", len, done, errno);
@@ -269,6 +271,7 @@ static int copy_one_inline(int fd, struct btrfs_path *path, u64 pos)
 
 	done = pwrite(fd, outbuf, ram_size, pos);
 	free(outbuf);
+	*bytes_written += done;
 	if (done < ram_size) {
 		fprintf(stderr, "Short compressed inline write, wanted %Lu, "
 			"did %zd: %d\n", ram_size, done, errno);
@@ -280,7 +283,8 @@ static int copy_one_inline(int fd, struct btrfs_path *path, u64 pos)
 
 static int copy_one_extent(struct btrfs_root *root, int fd,
 			   struct extent_buffer *leaf,
-			   struct btrfs_file_extent_item *fi, u64 pos)
+			   struct btrfs_file_extent_item *fi, u64 pos,
+			   u64 *bytes_written)
 {
 	struct btrfs_multi_bio *multi = NULL;
 	struct btrfs_device *device;
@@ -410,6 +414,7 @@ again:
 		total += done;
 	}
 out:
+	*bytes_written += total;
 	free(inbuf);
 	free(outbuf);
 	return ret;
@@ -651,6 +656,8 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 	int extent_type;
 	int compression;
 	int loops = 0;
+	u64 bytes_written, next_pos = 0ULL;
+	u64 total_written = 0ULL;
 	struct stat st;
 
 	path = btrfs_alloc_path();
@@ -734,14 +741,15 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 		if (extent_type == BTRFS_FILE_EXTENT_PREALLOC)
 			goto next;
 		if (extent_type == BTRFS_FILE_EXTENT_INLINE) {
-			ret = copy_one_inline(fd, path, found_key.offset);
+			ret = copy_one_inline(fd, path, found_key.offset,
+					      &bytes_written);
 			if (ret) {
 				btrfs_free_path(path);
 				return -1;
 			}
 		} else if (extent_type == BTRFS_FILE_EXTENT_REG) {
 			ret = copy_one_extent(root, fd, leaf, fi,
-					      found_key.offset);
+					      found_key.offset, &bytes_written);
 			if (ret) {
 				btrfs_free_path(path);
 				return ret;
