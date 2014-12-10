@@ -31,22 +31,23 @@
 
 static int print_usage(void)
 {
-	fprintf(stderr, "usage: btrfs-debug-tree [-e] [-d] [-r] [-R] [-u]\n");
-	fprintf(stderr, "                        [-b block_num ] device\n");
+	fprintf(stderr, "usage: btrfs-debug-tree [-e] [-d] [-r] [-R] [-u] [-B]\n");
+	fprintf(stderr, "                        [-t tree_id] device\n");
+	fprintf(stderr, "       btrfs-debug-tree [-b block_num [-f]] device\n");
 	fprintf(stderr, "\t-e : print detailed extents info\n");
 	fprintf(stderr, "\t-d : print info of btrfs device and root tree dirs"
                     " only\n");
 	fprintf(stderr, "\t-r : print info of roots only\n");
 	fprintf(stderr, "\t-R : print info of roots and root backups\n");
 	fprintf(stderr, "\t-u : print info of uuid tree only\n");
-	fprintf(stderr, "\t-b block_num : print info of the specified block"
-                    " only\n");
-	fprintf(stderr, "\t-f : (with -b) follow subtree of the specified"
-		" block\n");
 	fprintf(stderr,
 		"\t-t tree_id : print only the tree with the given id\n");
 	fprintf(stderr,
 		"\t-B nr: use root backup <nr> instead of real root\n");
+	fprintf(stderr, "\t-b block_num : print info of the specified block"
+                    " only\n");
+	fprintf(stderr, "\t-f : (with -b) follow subtree of the specified"
+		" block\n");
 	fprintf(stderr, "%s\n", BTRFS_BUILD_VERSION);
 	exit(1);
 }
