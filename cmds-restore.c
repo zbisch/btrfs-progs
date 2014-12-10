@@ -661,7 +661,7 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 #define MAYBE_NL (verbose && (next_pos >> display_shift) ? "\n" : "")
 	const u64 display_shift = 16;
 	struct stat st;
-
+	int dont_ask = 0;
 	path = btrfs_alloc_path();
 	if (!path) {
 		fprintf(stderr, "Ran out of memory\n");
@@ -697,9 +697,21 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 	}
 
 	while (1) {
-		if (loops >= 0 && loops++ >= 1024) {
+		int problem = 0;
+		if (st.st_size == _INVALID_SIZE && next_pos > st.st_size) {
+			fprintf(stderr, "%swriting at offset %llu beyond size "
+				"of file (%llu)\n",
+				MAYBE_NL, next_pos, st.st_size);
+			problem = 1;
+		}
+		if ((++loops % 1024) == 0 && (next_pos / loops < 4096)) {
+			fprintf(stderr, "%smany loops (%d) and little progress "
+				"(%llu bytes)\n", 
+				MAYBE_NL, loops, next_pos);
+			problem = 1;
+		}
+		if (problem && !dont_ask && loops++) {
 			enum loop_response resp;
-
 			resp = ask_to_continue(file);
 			if (resp == LOOP_STOP)
 				break;
