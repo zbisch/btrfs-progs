@@ -41,6 +41,8 @@ static int print_usage(void)
 	fprintf(stderr, "\t-u : print info of uuid tree only\n");
 	fprintf(stderr, "\t-b block_num : print info of the specified block"
                     " only\n");
+	fprintf(stderr, "\t-f : (with -b) follow subtree of the specified"
+		" block\n");
 	fprintf(stderr,
 		"\t-t tree_id : print only the tree with the given id\n");
 	fprintf(stderr, "%s\n", BTRFS_BUILD_VERSION);
@@ -137,6 +139,7 @@ int main(int ac, char **av)
 	int roots_only = 0;
 	int root_backups = 0;
 	u64 block_only = 0;
+	int block_follow = 0;
 	struct btrfs_root *tree_root_scan;
 	u64 tree_id = 0;
 
@@ -144,7 +147,7 @@ int main(int ac, char **av)
 
 	while(1) {
 		int c;
-		c = getopt(ac, av, "deb:rRut:");
+		c = getopt(ac, av, "defb:rRut:");
 		if (c < 0)
 			break;
 		switch(c) {
@@ -166,6 +169,9 @@ int main(int ac, char **av)
 				break;
 			case 'b':
 				block_only = arg_strtou64(optarg);
+				break;
+			case 'f':
+				block_follow = 1;
 				break;
 			case 't':
 				tree_id = arg_strtou64(optarg);
@@ -218,7 +224,7 @@ int main(int ac, char **av)
 				(unsigned long long)block_only);
 			goto close_root;
 		}
-		btrfs_print_tree(root, leaf, 0);
+		btrfs_print_tree(root, leaf, block_follow);
 		goto close_root;
 	}
 
