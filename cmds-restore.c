@@ -315,7 +315,7 @@ static int copy_one_extent(struct btrfs_root *root, int fd,
 	if (compress == BTRFS_COMPRESS_NONE)
 		bytenr += offset;
 
-	if (verbose && offset)
+	if (verbose > 1 && offset)
 		printf("offset is %Lu\n", offset);
 	/* we found a hole */
 	if (disk_size == 0)
