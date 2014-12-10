@@ -715,7 +715,7 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 					return ret;
 				} else if (ret) {
 					/* No more leaves to search */
-					btrfs_free_path(path);
+					ret = 0;
 					goto set_size;
 				}
 				leaf = path->nodes[0];
@@ -734,35 +734,36 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 		if (compression >= BTRFS_COMPRESS_LAST) {
 			fprintf(stderr, "Don't support compression yet %d\n",
 				compression);
-			btrfs_free_path(path);
-			return -1;
+			ret = -1;
+			goto set_size;
 		}
 
+		bytes_written = 0ULL;
 		if (extent_type == BTRFS_FILE_EXTENT_PREALLOC)
 			goto next;
 		if (extent_type == BTRFS_FILE_EXTENT_INLINE) {
 			ret = copy_one_inline(fd, path, found_key.offset,
 					      &bytes_written);
-			if (ret) {
-				btrfs_free_path(path);
-				return -1;
-			}
 		} else if (extent_type == BTRFS_FILE_EXTENT_REG) {
 			ret = copy_one_extent(root, fd, leaf, fi,
 					      found_key.offset, &bytes_written);
-			if (ret) {
-				btrfs_free_path(path);
-				return ret;
-			}
 		} else {
 			printf("Weird extent type %d\n", extent_type);
+		}
+		total_written += bytes_written;
+		next_pos = found_key.offset + bytes_written;
+		if (ret) {
+			fprintf(stderr, "ERROR after writing %llu bytes\n",
+				total_written);
+			ret = -1;
+			goto set_size;
 		}
 next:
 		path->slots[0]++;
 	}
 
-	btrfs_free_path(path);
 set_size:
+	btrfs_free_path(path);
 	if (get_xattrs) {
 		ret = set_file_xattrs(root, key->objectid, fd, file);
 		if (ret)
@@ -771,7 +772,7 @@ set_size:
 	}
 
 	set_fd_attrs(fd, &st, file);
-	return 0;
+	return ret;
 }
 
 static int search_dir(struct btrfs_root *root, struct btrfs_key *key,
