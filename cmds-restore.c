@@ -908,7 +908,7 @@ static int search_dir(struct btrfs_root *root, struct btrfs_key *key,
 				ret = 0;
 			}
 			if (verbose)
-				printf("Restoring %s\n", path_name);
+				printf("Restoring %s\n", filename);
 			if (dry_run)
 				goto next;
 			fd = open(path_name, O_CREAT|O_WRONLY, 0644);
@@ -982,7 +982,7 @@ static int search_dir(struct btrfs_root *root, struct btrfs_key *key,
 			}
 
 			if (verbose)
-				printf("Restoring %s\n", path_name);
+				printf("Searching directory %s\n", path_name);
 
 			errno = 0;
 			if (dry_run)
