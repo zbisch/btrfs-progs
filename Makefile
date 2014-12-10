@@ -50,7 +50,7 @@ MAKEOPTS = --no-print-directory Q=$(Q)
 
 progs = mkfs.btrfs btrfs-debug-tree btrfs-raw btrfsck \
 	btrfs btrfs-map-logical btrfs-image btrfs-zero-log btrfs-convert \
-	btrfs-find-root btrfstune btrfs-show-super
+	btrfs-find-root btrfstune btrfs-show-super btrfs-search-metadata
 
 progs_extra = btrfs-corrupt-block btrfs-fragments btrfs-calc-size \
 	      btrfs-select-super
