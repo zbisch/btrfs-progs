@@ -799,6 +799,12 @@ set_size:
 				file);
 	}
 
+	if (st.st_size != _INVALID_SIZE && (st.st_size > next_pos || 
+					    (st.st_size < next_pos &&
+					     (st.st_size >> 12) !=
+					     (next_pos >> 12) - 1)))
+		fprintf(stderr, "size mismatch: extpected %llu, got %llu (written %llu)\n",
+			st.st_size, next_pos, total_written);	
 	set_fd_attrs(fd, &st, file);
 	return ret;
 }
