@@ -739,6 +739,14 @@ static int copy_file(struct btrfs_root *root, int fd, struct btrfs_key *key,
 			ret = -1;
 			goto set_size;
 		}
+		if (found_key.offset < next_pos) {
+			fprintf(stderr, "extent overlap, %llu < %llu\n",
+				found_key.offset, next_pos);
+			ret = -1;
+			goto set_size;
+		} else if (found_key.offset > next_pos)
+			fprintf(stderr, "hole at %llu (%llu bytes)\n",
+				next_pos, found_key.offset - next_pos);
 
 		bytes_written = 0ULL;
 		if (extent_type == BTRFS_FILE_EXTENT_PREALLOC)
