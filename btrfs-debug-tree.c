@@ -45,6 +45,8 @@ static int print_usage(void)
 		" block\n");
 	fprintf(stderr,
 		"\t-t tree_id : print only the tree with the given id\n");
+	fprintf(stderr,
+		"\t-B nr: use root backup <nr> instead of real root\n");
 	fprintf(stderr, "%s\n", BTRFS_BUILD_VERSION);
 	exit(1);
 }
@@ -140,6 +142,7 @@ int main(int ac, char **av)
 	int root_backups = 0;
 	u64 block_only = 0;
 	int block_follow = 0;
+	int use_backup = -1;
 	struct btrfs_root *tree_root_scan;
 	u64 tree_id = 0;
 
@@ -147,7 +150,7 @@ int main(int ac, char **av)
 
 	while(1) {
 		int c;
-		c = getopt(ac, av, "defb:rRut:");
+		c = getopt(ac, av, "defb:rRut:B:");
 		if (c < 0)
 			break;
 		switch(c) {
@@ -175,6 +178,9 @@ int main(int ac, char **av)
 				break;
 			case 't':
 				tree_id = arg_strtou64(optarg);
+				break;
+			case 'B':
+				use_backup = arg_strtou64(optarg);
 				break;
 			default:
 				print_usage();
@@ -226,6 +232,37 @@ int main(int ac, char **av)
 		}
 		btrfs_print_tree(root, leaf, block_follow);
 		goto close_root;
+	}
+
+	if (use_backup >= BTRFS_NUM_BACKUP_ROOTS) {
+		fprintf(stderr, "Invalid backup root number %d\n",
+			use_backup);
+		exit(1);
+	} else if (use_backup >= 0) {
+		u64 bytenr, generation;
+		u32 blocksize;
+		struct btrfs_super_block *sb = info->super_copy;
+		struct btrfs_root_backup *backup = sb->super_roots + use_backup;
+		struct extent_buffer *eb;
+		bytenr = btrfs_backup_tree_root(backup);
+		generation = btrfs_backup_tree_root_gen(backup);
+		blocksize = btrfs_level_size(info->tree_root,
+					     btrfs_super_root_level(sb));
+		eb = info->tree_root->node;
+		info->tree_root->node = read_tree_block(root, bytenr,
+							blocksize, generation);
+		free_extent_buffer(eb);
+		bytenr = btrfs_backup_chunk_root(backup);
+		generation = btrfs_backup_chunk_root_gen(backup);
+		eb =  info->chunk_root->node;
+		info->chunk_root->node = read_tree_block(root, bytenr,
+							blocksize, generation);
+		free_extent_buffer(eb);
+		if (!extent_buffer_uptodate(info->tree_root->node) ||
+		    !extent_buffer_uptodate(info->tree_root->node)) {
+			fprintf(stderr, "Couldn't backup root\n");
+			return 1;
+		}
 	}
 
 	if (!(extent_only || uuid_tree_only || tree_id)) {
