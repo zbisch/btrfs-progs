@@ -75,6 +75,28 @@ NOTE: <name> should be less than 256 characters.
 -m|--metadata <profile>::
 Specify how metadata must be spanned across the devices specified. Valid
 values are 'raid0', 'raid1', 'raid5', 'raid6', 'raid10', 'single' or 'dup'.
+values are of the form <n>c[d][<m>s[<p>p]], where <n> is the number of copies
+of data, <m> is the number of stripes per copy, and <p> is the number of parity
+stripes. The <m> parameter must (currently) be a literal "X", indicating that
+as many stripes as possible will be used. The letter "d" may be added to the
+number of copies, to indicate non-redundant copies (e.g. on the same device).
++
+The following deprecated values may also be used:
++
+single 1c::::
+one copy of data accross all devices
+raid0  1cXs::::
+one copy of data striped accross all devices
+raid1  2c::::
+two copies of data
+dup    2cd::::
+two copies of data on a single device
+raid10 2cXsS::::
+two copies of data, striped accross all devices
+raid5  1cXs1p::::
+one copy of data with single parity, stripes accross all devices
+raid6  1cXs2p::::
+one copy of data with double parity, stripes accross all devices
 +
 Single device
 will have dup set by default except in the case of SSDs which will default to

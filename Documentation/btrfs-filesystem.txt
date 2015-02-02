@@ -40,6 +40,15 @@ show sizes in MiB, or MB with --si
 show sizes in GiB, or GB with --si
 -t|--tbytes::::
 show sizes in TiB, or TB with --si
+-e|--explain::::
+Explain the new-style NcMsPp terminology in more
+detail: `Nc` shows the number of copies of data; a trailing `d`
+indicates reduced device redundancy (e.g. more than one of the copies
+may live on a single device), `Ms` shows the number of data stripes per
+copy (with `Xs` indicating as many as will fit across the available
+devices), and `Pp` shows the number of parity stripes.
+-r|--raid::::
+use old-style "RAID-n" terminology to show replication types
 +
 If conflicting options are passed, the last one takes precedence.
 
