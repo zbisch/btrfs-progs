@@ -30,6 +30,8 @@
 #include "transaction.h"
 #include "utils.h"
 
+#include "box.h"
+
 static int print_usage(int ret)
 {
 	fprintf(stderr, "usage: btrfs-debug-tree [-e] [-d] [-r] [-R] [-u]\n");
@@ -121,7 +123,7 @@ static void print_old_roots(struct btrfs_super_block *super)
 	}
 }
 
-int main(int ac, char **av)
+int BOX_MAIN(debug_tree)(int ac, char **av)
 {
 	struct btrfs_root *root;
 	struct btrfs_fs_info *info;

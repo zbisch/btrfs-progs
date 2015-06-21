@@ -36,6 +36,8 @@
 #include "volumes.h"
 #include "extent_io.h"
 
+#include "box.h"
+
 #define HEADER_MAGIC		0xbd5c25e27295668bULL
 #define MAX_PENDING_SIZE	(256 * 1024)
 #define BLOCK_SIZE		1024
@@ -2706,7 +2708,7 @@ static void print_usage(int ret)
 	exit(ret);
 }
 
-int main(int argc, char *argv[])
+int BOX_MAIN(image)(int argc, char *argv[])
 {
 	char *source;
 	char *target;

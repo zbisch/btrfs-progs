@@ -34,9 +34,10 @@
 #include "utils.h"
 #include "crc32c.h"
 
+#include "box.h"
+
 static void print_usage(void);
 static void dump_superblock(struct btrfs_super_block *sb, int full);
-int main(int argc, char **argv);
 static int load_and_dump_sb(char *, int fd, u64 sb_bytenr, int full, int force);
 
 
@@ -51,7 +52,7 @@ static void print_usage(void)
 	fprintf(stderr, "%s\n", PACKAGE_STRING);
 }
 
-int main(int argc, char **argv)
+int BOX_MAIN(show_super)(int argc, char **argv)
 {
 	int opt;
 	int all = 0;

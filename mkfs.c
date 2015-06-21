@@ -41,6 +41,7 @@
 #include "volumes.h"
 #include "transaction.h"
 #include "utils.h"
+#include "box.h"
 
 static u64 index_cnt = 2;
 static int verbose = 1;
@@ -1160,7 +1161,7 @@ static void list_all_devices(struct btrfs_root *root)
 	printf("\n");
 }
 
-int main(int ac, char **av)
+int BOX_MAIN(mkfs)(int ac, char **av)
 {
 	char *file;
 	struct btrfs_root *root;

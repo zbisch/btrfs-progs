@@ -36,6 +36,8 @@
 #include "extent-cache.h"
 #include "find-root.h"
 
+#include "box.h"
+
 static void usage(void)
 {
 	fprintf(stderr, "Usage: find-roots [-a] [-o search_objectid] "
@@ -138,7 +140,7 @@ static void print_find_root_result(struct cache_tree *result,
 	}
 }
 
-int main(int argc, char **argv)
+int BOX_MAIN(find_root)(int argc, char **argv)
 {
 	struct btrfs_root *root;
 	struct btrfs_find_root_filter filter = {0};

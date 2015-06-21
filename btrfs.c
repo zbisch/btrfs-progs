@@ -22,6 +22,8 @@
 #include "commands.h"
 #include "utils.h"
 
+#include "box.h"
+
 static const char * const btrfs_cmd_group_usage[] = {
 	"btrfs [--help] [--version] <group> [<group>...] <command> [<args>]",
 	NULL
@@ -222,6 +224,29 @@ int main(int argc, char **argv)
 
 	if (!strcmp(bname, "btrfsck")) {
 		argv[0] = "check";
+#ifdef ENABLE_BOX
+	} else if (!strcmp(bname, "btrfstune")) {
+		printf("*** I'm going to be btrfstune now ***\n");
+		return btrfstune_main(argc, argv);
+	} else if (!strcmp(bname, "mkfs.btrfs")) {
+		printf("*** I'm going to be mkfs.btrfs now ***\n");
+		return mkfs_main(argc, argv);
+	} else if (!strcmp(bname, "btrfs-image")) {
+		printf("*** I'm going to be btrfs-image now ***\n");
+		return image_main(argc, argv);
+	} else if (!strcmp(bname, "btrfs-convert")) {
+		printf("*** I'm going to be btrfs-convert now ***\n");
+		return convert_main(argc, argv);
+	} else if (!strcmp(bname, "btrfs-debug-tree")) {
+		printf("*** I'm going to be btrfs-debug-tree now ***\n");
+		return debug_tree_main(argc, argv);
+	} else if (!strcmp(bname, "btrfs-find-root")) {
+		printf("*** I'm going to be btrfs-find-root now ***\n");
+		return find_root_main(argc, argv);
+	} else if (!strcmp(bname, "btrfs-show-super")) {
+		printf("*** I'm going to be btrfs-show-super now ***\n");
+		return show_super_main(argc, argv);
+#endif
 	} else {
 		argc--;
 		argv++;

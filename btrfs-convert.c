@@ -41,6 +41,8 @@
 #include <ext2fs/ext2fs.h>
 #include <ext2fs/ext2_ext_attr.h>
 
+#include "box.h"
+
 #define INO_OFFSET (BTRFS_FIRST_FREE_OBJECTID - EXT2_ROOT_INO)
 #define CONV_IMAGE_SUBVOL_OBJECTID BTRFS_FIRST_FREE_OBJECTID
 
@@ -2839,7 +2841,7 @@ static void print_usage(void)
 	printf("\t--no-progress          show only overview, not the detailed progress\n");
 }
 
-int main(int argc, char *argv[])
+int BOX_MAIN(convert)(int argc, char *argv[])
 {
 	int ret;
 	int packing = 1;
