@@ -19,9 +19,11 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "kerncompat.h"
 #include "ioctl.h"
@@ -339,6 +341,178 @@ out:
 
 	return !!ret;
 }
+static const char * const cmd_inspect_comprsize_usage[] = {
+	"btrfs inspect-internal comprsize [-s start] [-e end] <file>",
+	"Read ordinary and compressed size a file range\n",
+	"Read ordinary and compressed size of extents in the range [start,end)\n",
+	"-s start      range start inclusive, accepts K/M/G modifiers\n",
+	"-e end        range end exclusive, accepts K/M/G modifiers\n",
+	NULL
+};
+
+int do_compr_size(int fd, u64 start, u64 end, u64 *size, u64 *compressed_size, u64 *ncomp, u64 *nall)
+{
+	struct btrfs_ioctl_search_args args;
+	struct btrfs_ioctl_search_key *sk = &args.key;
+	struct btrfs_ioctl_search_header *sh;
+	int ret = 0;
+	unsigned off;
+	int i;
+	struct stat st;
+
+	fstat(fd, &st);
+	if (!S_ISREG(st.st_mode))
+		return EINVAL;
+
+	sk->tree_id = BTRFS_FS_TREE_OBJECTID;
+	sk->min_objectid = st.st_ino;
+	sk->max_objectid = st.st_ino;
+	sk->max_type = BTRFS_EXTENT_DATA_KEY;
+	sk->min_type = BTRFS_EXTENT_DATA_KEY;
+	sk->min_offset = start;
+	sk->max_offset = end;
+	sk->max_transid = (u64)-1;
+	sk->nr_items = 128;
+
+	while (sk->nr_items) {
+		ret = ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args);
+		if (ret) {
+			ret = -1;
+			goto out;
+		}
+		if (sk->nr_items == 0)
+			goto out;
+
+		off = 0;
+		for (i = 0; i < sk->nr_items; i++) {
+			struct btrfs_file_extent_item fi;
+
+			sh = (struct btrfs_ioctl_search_header *)(args.buf +
+					off);
+
+			off += sizeof(*sh);
+			/* process data */
+			/* fixme: endianity? */
+			memcpy(&fi, args.buf + off, sizeof(fi));
+
+			switch(fi.type) {
+			case BTRFS_FILE_EXTENT_INLINE:
+				/* printf("INLINE: cs %u s %llu\n", sh->len, fi.ram_bytes); */
+				*compressed_size += sh->len;
+				*size += fi.ram_bytes;
+				if (fi.compression)
+					*ncomp += 1;
+				*nall += 1;
+				break;
+			case BTRFS_FILE_EXTENT_REG:
+				/* printf("REG: cs %llu s %llu\n", fi.disk_num_bytes, fi.ram_bytes); */
+				*compressed_size += ALIGN(fi.disk_num_bytes, 512);
+				*size += ALIGN(fi.ram_bytes, 512);
+				if (fi.compression)
+					*ncomp += 1;
+				*nall += 1;
+				break;
+			case BTRFS_FILE_EXTENT_PREALLOC:
+				/* printf("PREALLOC: skip\n"); */
+				break;
+			default:
+				BUG();
+			}
+
+			off += sh->len;
+
+			sk->min_objectid = sh->objectid;
+			sk->min_type = sh->type;
+			sk->min_offset = sh->offset;
+
+			if (sk->min_offset < (u64)-1)
+				sk->min_offset++;
+			else
+				break;
+		}
+	}
+out:
+	return ret;
+}
+
+int cmd_inspect_comprsize(int argc, char **argv)
+{
+       int ret;
+       int fd;
+       u64 start = 0;
+       u64 end = (u64)-1;
+       u64 compressed_size;
+       u64 size;
+       u64 ncomp;
+       u64 nall;
+       DIR *dirname = NULL;
+
+       optind = 1;
+       while (1) {
+               int c = getopt(argc, argv, "s:e:");
+               if (c < 0)
+                       break;
+               switch (c) {
+               case 's':
+                       start = parse_size(optarg);
+                       break;
+               case 'e':
+                       end = parse_size(optarg);
+                       break;
+               default:
+                       fprintf(stderr, "ERROR: Invalid arguments for comprsize\n");
+                       return 1;
+               }
+       }
+
+       if (start > end) {
+               fprintf(stderr, "ERROR: Invalid range for comprsize\n");
+               return 1;
+       }
+
+       if (argc - optind == 0) {
+               fprintf(stderr, "ERROR: Invalid arguments for comprsize\n");
+               return 1;
+       }
+       argc -= optind;
+
+       fd = open_file_or_dir(argv[optind], &dirname);
+       if (fd < 0) {
+               fprintf(stderr, "ERROR: can't access '%s'\n", argv[optind]);
+               return 1;
+       }
+
+       size = 0;
+       compressed_size = 0;
+       ncomp = 0;
+       nall = 0;
+       ret = do_compr_size(fd, start, end, &size, &compressed_size, &ncomp, &nall);
+       if (ret < 0) {
+               fprintf(stderr, "ERROR: error calculating compressed size, errno %d %s\n",
+                               errno, strerror(errno));
+               return errno;
+       }
+
+       printf("File name: %s\n", argv[optind]);
+       if (end == (u64)-1)
+               printf("File range:         %llu-EOF\n",
+                               (unsigned long long)start);
+       else
+               printf("File range:         %llu-%llu\n",
+                               (unsigned long long)start,
+                               (unsigned long long)end);
+
+       printf("Compressed extents:  %llu\n", (unsigned long long)ncomp);
+       printf("All extents:         %llu\n", (unsigned long long)nall);
+
+       printf("Compressed size:     %llu\n",
+                       (unsigned long long)(compressed_size));
+       printf("Uncompressed size:   %llu\n",
+                       (unsigned long long)(size));
+       printf("Ratio:               %3.2f%%\n",
+                       100.0 * compressed_size / size);
+       return 0;
+}
 
 struct dev_extent_elem {
 	u64 start;
@@ -647,6 +821,8 @@ const struct cmd_group inspect_cmd_group = {
 			0 },
 		{ "min-dev-size", cmd_inspect_min_dev_size,
 			cmd_inspect_min_dev_size_usage, NULL, 0 },
+		{ "comprsize", cmd_inspect_comprsize,
+			cmd_inspect_comprsize_usage, NULL, 0 },
 		NULL_CMD_STRUCT
 	}
 };

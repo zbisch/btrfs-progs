@@ -363,4 +363,8 @@ struct __una_u64 { __le64 x; } __attribute__((__packed__));
 #define noinline
 #endif
 
+#define __ALIGN_KERNEL(x, a)            __ALIGN_KERNEL_MASK(x, (typeof(x))(a) - 1)
+#define __ALIGN_KERNEL_MASK(x, mask)    (((x) + (mask)) & ~(mask))
+#define ALIGN(x, a)             __ALIGN_KERNEL((x), (a))
+
 #endif
