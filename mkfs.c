@@ -1603,7 +1603,7 @@ int main(int ac, char **av)
 		}
 	}
 	ret = test_num_disk_vs_raid(metadata_profile, data_profile,
-			dev_cnt, mixed);
+			dev_cnt, mixed, ssd);
 	if (ret)
 		exit(1);
 
