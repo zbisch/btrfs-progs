@@ -2405,7 +2405,7 @@ static int do_convert(const char *devname, int datacsum, int packing, int noxatt
 
 	if (progress) {
 		ctx.info = task_init(print_copied_inodes, after_copied_inodes, &ctx);
-		task_start(ctx.info);
+		task_start(ctx.info, NULL, NULL);
 	}
 	ret = copy_inodes(root, ext2_fs, datacsum, packing, noxattr, &ctx);
 	if (ret) {

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <uuid/uuid.h>
+#include <time.h>
 #include "ctree.h"
 #include "volumes.h"
 #include "repair.h"
@@ -45,12 +46,17 @@ enum task_position {
 	TASK_EXTENTS,
 	TASK_FREE_SPACE,
 	TASK_FS_ROOTS,
+	TASK_CSUMS,
+	TASK_ROOT_REFS,
+	TASK_QGROUPS,
 	TASK_NOTHING, /* have to be the last element */
 };
 
 struct task_ctx {
 	int progress_enabled;
 	enum task_position tp;
+	time_t start_time;
+	u64 item_count;
 
 	struct task_info *info;
 };
@@ -76,12 +82,22 @@ static struct task_ctx ctx = { 0 };
 static void *print_status_check(void *p)
 {
 	struct task_ctx *priv = p;
-	const char work_indicator[] = { '.', 'o', 'O', 'o' };
 	uint32_t count = 0;
 	static char *task_position_string[] = {
-		"checking extents",
-		"checking free space cache",
-		"checking fs roots",
+		"[1/6] checking extents",
+		"[2/6] checking free space cache",
+		"[3/6] checking fs roots",
+		"[4/6] checking csums",
+		"[5/6] checking root refs",
+		"[6/6] checking quota groups",
+	};
+	static char *item_count_string[] = {
+		"chunk items checked",
+		"cache objects checked",
+		"tree blocks checked",
+		"csums checked",
+		"root refs checked",
+		"qgroups checked",
 	};
 
 	task_period_start(priv->info, 1000 /* 1s */);
@@ -90,8 +106,17 @@ static void *print_status_check(void *p)
 		return NULL;
 
 	while (1) {
-		printf("%s [%c]\r", task_position_string[priv->tp],
-				work_indicator[count % 4]);
+		time_t elapsed = time(NULL) - priv->start_time;
+		int hours = elapsed / 3600;
+		elapsed -= hours * 3600;
+		int minutes = elapsed / 60;
+		elapsed -= minutes * 60;
+		int seconds = elapsed;
+		printf("%s (%d:%02d:%02d elapsed", task_position_string[priv->tp], hours, minutes, seconds);
+		if (priv->item_count > 0)
+			printf(", %llu %s)\r", priv->item_count, item_count_string[priv->tp]);
+		else
+			printf(")\r");
 		count++;
 		fflush(stdout);
 		task_period_wait(priv->info);
@@ -3162,11 +3187,17 @@ static int check_root_refs(struct btrfs_root *root,
 	int error;
 	int errors = 0;
 
+	if (ctx.progress_enabled) {
+		ctx.tp = TASK_ROOT_REFS;
+		task_start(ctx.info, &ctx.start_time, &ctx.item_count);
+	}
+
 	rec = get_root_rec(root_cache, BTRFS_FS_TREE_OBJECTID);
 	rec->found_ref = 1;
 
 	/* fixme: this can not detect circular references */
 	while (loop) {
+		ctx.item_count++;
 		loop = 0;
 		cache = search_cache_extent(root_cache, 0);
 		while (1) {
@@ -3197,6 +3228,7 @@ static int check_root_refs(struct btrfs_root *root,
 
 	cache = search_cache_extent(root_cache, 0);
 	while (1) {
+		ctx.item_count++;
 		if (!cache)
 			break;
 		rec = container_of(cache, struct root_record, cache);
@@ -3260,6 +3292,7 @@ static int check_root_refs(struct btrfs_root *root,
 			print_ref_error(backref->errors);
 		}
 	}
+	task_stop(ctx.info);
 	return errors > 0 ? 1 : 0;
 }
 
@@ -3486,6 +3519,7 @@ static int check_fs_root(struct btrfs_root *root,
 	}
 
 	while (1) {
+		ctx.item_count++;
 		wret = walk_down_tree(root, &path, wc, &level);
 		if (wret < 0)
 			ret = wret;
@@ -3573,7 +3607,7 @@ static int check_fs_roots(struct btrfs_root *root,
 
 	if (ctx.progress_enabled) {
 		ctx.tp = TASK_FS_ROOTS;
-		task_start(ctx.info);
+		task_start(ctx.info, &ctx.start_time, &ctx.item_count);
 	}
 
 	/*
@@ -5380,10 +5414,11 @@ static int check_space_cache(struct btrfs_root *root)
 
 	if (ctx.progress_enabled) {
 		ctx.tp = TASK_FREE_SPACE;
-		task_start(ctx.info);
+		task_start(ctx.info, &ctx.start_time, &ctx.item_count);
 	}
 
 	while (1) {
+		ctx.item_count++;
 		cache = btrfs_lookup_first_block_group(root->fs_info, start);
 		if (!cache)
 			break;
@@ -5641,6 +5676,11 @@ static int check_csums(struct btrfs_root *root)
 	u64 data_len;
 	unsigned long leaf_offset;
 
+	if (ctx.progress_enabled) {
+		ctx.tp = TASK_CSUMS;
+		task_start(ctx.info, &ctx.start_time, &ctx.item_count);
+	}
+
 	root = root->fs_info->csum_root;
 	if (!extent_buffer_uptodate(root->node)) {
 		fprintf(stderr, "No valid csum tree found\n");
@@ -5684,6 +5724,7 @@ static int check_csums(struct btrfs_root *root)
 			path->slots[0]++;
 			continue;
 		}
+		ctx.item_count++;
 
 		data_len = (btrfs_item_size_nr(leaf, path->slots[0]) /
 			      csum_size) * root->sectorsize;
@@ -5713,6 +5754,7 @@ skip_csum_check:
 	}
 
 	btrfs_free_path(path);
+	task_stop(ctx.info);
 	return errors;
 }
 
@@ -7537,6 +7579,7 @@ static int check_extent_refs(struct btrfs_root *root,
 
 	while(1) {
 		int cur_err = 0;
+		ctx.item_count++;
 
 		fixed = 0;
 		recorded = 0;
@@ -7832,6 +7875,7 @@ int check_chunks(struct cache_tree *chunk_cache,
 
 	chunk_item = first_cache_extent(chunk_cache);
 	while (chunk_item) {
+		ctx.item_count++;
 		chunk_rec = container_of(chunk_item, struct chunk_record,
 					 cache);
 		err = check_chunk_refs(chunk_rec, block_group_cache,
@@ -8007,6 +8051,7 @@ static int deal_root_from_list(struct list_head *list,
 		 * can maximize readahead.
 		 */
 		while (1) {
+			ctx.item_count++;
 			ret = run_next_block(root, bits, bits_nr, &last,
 					     pending, seen, reada, nodes,
 					     extent_cache, chunk_cache,
@@ -8022,6 +8067,7 @@ static int deal_root_from_list(struct list_head *list,
 			break;
 	}
 	while (ret >= 0) {
+		ctx.item_count++;
 		ret = run_next_block(root, bits, bits_nr, &last, pending, seen,
 				     reada, nodes, extent_cache, chunk_cache,
 				     dev_cache, block_group_cache,
@@ -8095,7 +8141,7 @@ static int check_chunks_and_extents(struct btrfs_root *root)
 
 	if (ctx.progress_enabled) {
 		ctx.tp = TASK_EXTENTS;
-		task_start(ctx.info);
+		task_start(ctx.info, &ctx.start_time, &ctx.item_count);
 	}
 
 again:
@@ -9491,11 +9537,18 @@ int cmd_check(int argc, char **argv)
 		ctx.info = task_init(print_status_check, print_status_return, &ctx);
 	}
 
+	if (ctx.progress_enabled) {
+		ctx.tp = TASK_NOTHING;
+		ctx.info = task_init(print_status_check, print_status_return, &ctx);
+	}
+
 	/* This check is the only reason for --readonly to exist */
 	if (readonly && repair) {
 		fprintf(stderr, "Repair options are not compatible with --readonly\n");
 		exit(1);
 	}
+
+	printf("Opening filesystem to check...\n");
 
 	radix_tree_init();
 	cache_tree_init(&root_cache);
@@ -9619,7 +9672,7 @@ int cmd_check(int argc, char **argv)
 	}
 
 	if (!ctx.progress_enabled)
-		fprintf(stderr, "checking extents\n");
+		fprintf(stderr, "[1/6] checking extents\n");
 	ret = check_chunks_and_extents(root);
 	if (ret)
 		fprintf(stderr, "Errors found in extent allocation tree or chunk allocation\n");
@@ -9641,7 +9694,7 @@ int cmd_check(int argc, char **argv)
 	}
 
 	if (!ctx.progress_enabled)
-		fprintf(stderr, "checking free space cache\n");
+		fprintf(stderr, "[2/6] checking free space cache\n");
 	ret = check_space_cache(root);
 	if (ret)
 		goto out;
@@ -9655,17 +9708,19 @@ int cmd_check(int argc, char **argv)
 	no_holes = btrfs_fs_incompat(root->fs_info,
 				     BTRFS_FEATURE_INCOMPAT_NO_HOLES);
 	if (!ctx.progress_enabled)
-		fprintf(stderr, "checking fs roots\n");
+		fprintf(stderr, "[3/6] checking fs roots\n");
 	ret = check_fs_roots(root, &root_cache);
 	if (ret)
 		goto out;
 
-	fprintf(stderr, "checking csums\n");
+	if (!ctx.progress_enabled)
+		fprintf(stderr, "[4/6] checking csums\n");
 	ret = check_csums(root);
 	if (ret)
 		goto out;
 
-	fprintf(stderr, "checking root refs\n");
+	if (!ctx.progress_enabled)
+		fprintf(stderr, "[5/6] checking root refs\n");
 	ret = check_root_refs(root, &root_cache);
 	if (ret)
 		goto out;
@@ -9693,11 +9748,20 @@ int cmd_check(int argc, char **argv)
 
 	if (info->quota_enabled) {
 		int err;
-		fprintf(stderr, "checking quota groups\n");
+		if (!ctx.progress_enabled)
+			fprintf(stderr, "[6/6] checking quota groups\n");
+		else {
+			ctx.tp = TASK_QGROUPS;
+			task_start(ctx.info, &ctx.start_time, &ctx.item_count);
+			qgroup_set_counter_ptr(&ctx.item_count);
+		}
 		err = qgroup_verify_all(info);
+		task_stop(ctx.info);
 		if (err)
 			goto out;
 	}
+	else
+		fprintf(stderr, "[6/6] checking quota groups skipped (not enabled on this FS)\n");
 
 	if (!list_empty(&root->fs_info->recow_ebs)) {
 		fprintf(stderr, "Transid errors in file system\n");
