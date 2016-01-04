@@ -154,7 +154,7 @@ int test_uuid_unique(char *fs_uuid)
 	blkid_dev dev = NULL;
 	blkid_cache cache = NULL;
 
-	if (blkid_get_cache(&cache, 0) < 0) {
+	if (blkid_get_cache(&cache, NULL) < 0) {
 		printf("ERROR: lblkid cache get failed\n");
 		return 1;
 	}
@@ -552,12 +552,12 @@ int make_btrfs(int fd, struct btrfs_mkfs_config *cfg)
 
 	/* and write out the super block */
 	BUG_ON(sizeof(super) > cfg->sectorsize);
-	memset(buf->data, 0, cfg->sectorsize);
+	memset(buf->data, 0, BTRFS_SUPER_INFO_SIZE);
 	memcpy(buf->data, &super, sizeof(super));
-	buf->len = cfg->sectorsize;
+	buf->len = BTRFS_SUPER_INFO_SIZE;
 	csum_tree_block_size(buf, BTRFS_CRC32_SIZE, 0);
-	ret = pwrite(fd, buf->data, cfg->sectorsize, cfg->blocks[0]);
-	if (ret != cfg->sectorsize) {
+	ret = pwrite(fd, buf->data, BTRFS_SUPER_INFO_SIZE, cfg->blocks[0]);
+	if (ret != BTRFS_SUPER_INFO_SIZE) {
 		ret = (ret < 0 ? -errno : -EIO);
 		goto out;
 	}
@@ -2463,7 +2463,7 @@ static int group_profile_devs_min(u64 flag)
 }
 
 int test_num_disk_vs_raid(u64 metadata_profile, u64 data_profile,
-	u64 dev_cnt, int mixed)
+	u64 dev_cnt, int mixed, int ssd)
 {
 	u64 allowed = 0;
 
@@ -2504,11 +2504,9 @@ int test_num_disk_vs_raid(u64 metadata_profile, u64 data_profile,
 		return 1;
 	}
 
-	if (!mixed && (data_profile & BTRFS_BLOCK_GROUP_DUP)) {
-		fprintf(stderr,
-			"ERROR: DUP for data is allowed only in mixed mode\n");
-		return 1;
-	}
+	warning_on(!mixed && (data_profile & BTRFS_BLOCK_GROUP_DUP) && ssd,
+		   "DUP may not actually lead to 2 copies on the device, see manual page");
+
 	return 0;
 }
 
@@ -2603,7 +2601,7 @@ int btrfs_scan_lblkid(void)
 	if (btrfs_scan_done)
 		return 0;
 
-	if (blkid_get_cache(&cache, 0) < 0) {
+	if (blkid_get_cache(&cache, NULL) < 0) {
 		printf("ERROR: lblkid cache get failed\n");
 		return 1;
 	}

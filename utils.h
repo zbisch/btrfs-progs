@@ -109,12 +109,16 @@ void btrfs_parse_features_to_string(char *buf, u64 flags);
 struct btrfs_mkfs_config {
 	char *label;
 	char *fs_uuid;
+	char *chunk_uuid;
 	u64 blocks[8];
 	u64 num_bytes;
 	u32 nodesize;
 	u32 sectorsize;
 	u32 stripesize;
 	u64 features;
+
+	/* Super bytenr after make_btrfs */
+	u64 super_bytenr;
 };
 
 int make_btrfs(int fd, struct btrfs_mkfs_config *cfg);
@@ -167,7 +171,7 @@ int test_dev_for_mkfs(char *file, int force_overwrite);
 int get_label_mounted(const char *mount_path, char *labelp);
 int get_label_unmounted(const char *dev, char *label);
 int test_num_disk_vs_raid(u64 metadata_profile, u64 data_profile,
-	u64 dev_cnt, int mixed);
+	u64 dev_cnt, int mixed, int ssd);
 int group_profile_max_safe_loss(u64 flags);
 int is_vol_small(char *file);
 int csum_tree_block(struct btrfs_root *root, struct extent_buffer *buf,

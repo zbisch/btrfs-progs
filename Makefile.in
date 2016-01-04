@@ -60,6 +60,7 @@ STATIC_LIBS = @UUID_LIBS_STATIC@ @BLKID_LIBS_STATIC@ \
 # generate so many sparse errors that sparse stops parsing,
 # which masks real errors that we want to see.
 CHECKER := sparse
+check_defs := .cc-defines.h
 CHECKER_FLAGS := -include $(check_defs) -D__CHECKER__ \
 	-D__CHECK_ENDIAN__ -Wbitwise -Wuninitialized -Wshadow -Wundef \
 	-U_FORTIFY_SOURCE
@@ -154,7 +155,6 @@ lib_links = libbtrfs.so.0 libbtrfs.so
 headers = $(libbtrfs_headers)
 
 # make C=1 to enable sparse
-check_defs := .cc-defines.h 
 ifdef C
 	# We're trying to use sparse against glibc headers which go wild
 	# trying to use internal compiler macros to test features.  We
@@ -190,23 +190,23 @@ $(BUILDDIRS):
 	$(Q)$(MAKE) $(MAKEOPTS) -C $(patsubst build-%,%,$@)
 
 test-convert: btrfs btrfs-convert
-	@echo "    [TEST]   convert-tests.sh"
+	@echo "    [TEST]       convert-tests.sh"
 	$(Q)bash tests/convert-tests.sh
 
 test-fsck: btrfs btrfs-image btrfs-corrupt-block btrfs-debug-tree mkfs.btrfs
-	@echo "    [TEST]   fsck-tests.sh"
+	@echo "    [TEST]       fsck-tests.sh"
 	$(Q)bash tests/fsck-tests.sh
 
 test-misc: btrfs btrfs-image btrfs-corrupt-block btrfs-debug-tree mkfs.btrfs btrfstune
-	@echo "    [TEST]   misc-tests.sh"
+	@echo "    [TEST]       misc-tests.sh"
 	$(Q)bash tests/misc-tests.sh
 
 test-mkfs: btrfs mkfs.btrfs
-	@echo "    [TEST]   mkfs-tests.sh"
+	@echo "    [TEST]       mkfs-tests.sh"
 	$(Q)bash tests/mkfs-tests.sh
 
 test-fuzz: btrfs
-	@echo "    [TEST]   fuzz-tests.sh"
+	@echo "    [TEST]       fuzz-tests.sh"
 	$(Q)bash tests/fuzz-tests.sh
 
 test-clean:

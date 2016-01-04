@@ -810,7 +810,8 @@ static void maybe_free_inode_rec(struct cache_tree *inode_cache,
 		if (backref->found_dir_item && backref->found_dir_index) {
 			if (backref->filetype != filetype)
 				backref->errors |= REF_ERR_FILETYPE_UNMATCH;
-			if (!backref->errors && backref->found_inode_ref) {
+			if (!backref->errors && backref->found_inode_ref &&
+			    rec->nlink == rec->found_link) {
 				list_del(&backref->list);
 				free(backref);
 			}
@@ -2392,7 +2393,7 @@ static int reset_nlink(struct btrfs_trans_handle *trans,
 	list_for_each_entry(backref, &rec->backrefs, list) {
 		ret = btrfs_add_link(trans, root, rec->ino, backref->dir,
 				     backref->name, backref->namelen,
-				     backref->ref_type, &backref->index, 1);
+				     backref->filetype, &backref->index, 1);
 		if (ret < 0)
 			goto out;
 	}
@@ -5134,6 +5135,10 @@ static int process_extent_item(struct btrfs_root *root,
 
 	ei = btrfs_item_ptr(eb, slot, struct btrfs_extent_item);
 	refs = btrfs_extent_refs(eb, ei);
+	if (btrfs_extent_flags(eb, ei) & BTRFS_EXTENT_FLAG_TREE_BLOCK)
+		metadata = 1;
+	else
+		metadata = 0;
 
 	add_extent_rec(extent_cache, NULL, 0, key.objectid, num_bytes,
 		       refs, 0, 0, 0, metadata, 1, num_bytes);

@@ -1591,6 +1591,7 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 	struct cache_extent *ce;
 	u64 logical;
 	u64 length;
+	u64 stripe_len;
 	u64 devid;
 	u8 uuid[BTRFS_UUID_SIZE];
 	int num_stripes;
@@ -1599,6 +1600,33 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 
 	logical = key->offset;
 	length = btrfs_chunk_length(leaf, chunk);
+	stripe_len = btrfs_chunk_stripe_len(leaf, chunk);
+	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
+	/* Validation check */
+	if (!num_stripes) {
+		error("invalid chunk num_stripes: %u", num_stripes);
+		return -EIO;
+	}
+	if (!IS_ALIGNED(logical, root->sectorsize)) {
+		error("invalid chunk logical %llu", logical);
+		return -EIO;
+	}
+	if (!length || !IS_ALIGNED(length, root->sectorsize)) {
+		error("invalid chunk length %llu", length);
+		return -EIO;
+	}
+	if (!is_power_of_2(stripe_len)) {
+		error("invalid chunk stripe length: %llu", stripe_len);
+		return -EIO;
+	}
+	if (~(BTRFS_BLOCK_GROUP_TYPE_MASK | BTRFS_BLOCK_GROUP_PROFILE_MASK) &
+	    btrfs_chunk_type(leaf, chunk)) {
+		error("unrecognized chunk type: %llu",
+		      ~(BTRFS_BLOCK_GROUP_TYPE_MASK |
+			BTRFS_BLOCK_GROUP_PROFILE_MASK) &
+		      btrfs_chunk_type(leaf, chunk));
+		return -EIO;
+	}
 
 	ce = search_cache_extent(&map_tree->cache_tree, logical);
 
@@ -1607,7 +1635,6 @@ static int read_one_chunk(struct btrfs_root *root, struct btrfs_key *key,
 		return 0;
 	}
 
-	num_stripes = btrfs_chunk_num_stripes(leaf, chunk);
 	map = kmalloc(btrfs_map_lookup_size(num_stripes), GFP_NOFS);
 	if (!map)
 		return -ENOMEM;
@@ -1795,12 +1822,14 @@ int btrfs_read_sys_array(struct btrfs_root *root)
 	struct extent_buffer *sb;
 	struct btrfs_disk_key *disk_key;
 	struct btrfs_chunk *chunk;
-	struct btrfs_key key;
-	u32 num_stripes;
-	u32 len = 0;
-	u8 *ptr;
-	u8 *array_end;
+	u8 *array_ptr;
+	unsigned long sb_array_offset;
 	int ret = 0;
+	u32 num_stripes;
+	u32 array_size;
+	u32 len = 0;
+	u32 cur_offset;
+	struct btrfs_key key;
 
 	sb = btrfs_find_create_tree_block(root, BTRFS_SUPER_INFO_OFFSET,
 					  BTRFS_SUPER_INFO_SIZE);
@@ -1808,37 +1837,69 @@ int btrfs_read_sys_array(struct btrfs_root *root)
 		return -ENOMEM;
 	btrfs_set_buffer_uptodate(sb);
 	write_extent_buffer(sb, super_copy, 0, sizeof(*super_copy));
-	array_end = ((u8 *)super_copy->sys_chunk_array) +
-		    btrfs_super_sys_array_size(super_copy);
+	array_size = btrfs_super_sys_array_size(super_copy);
 
-	/*
-	 * we do this loop twice, once for the device items and
-	 * once for all of the chunks.  This way there are device
-	 * structs filled in for every chunk
-	 */
-	ptr = super_copy->sys_chunk_array;
+	array_ptr = super_copy->sys_chunk_array;
+	sb_array_offset = offsetof(struct btrfs_super_block, sys_chunk_array);
+	cur_offset = 0;
 
-	while (ptr < array_end) {
-		disk_key = (struct btrfs_disk_key *)ptr;
+	while (cur_offset < array_size) {
+		disk_key = (struct btrfs_disk_key *)array_ptr;
+		len = sizeof(*disk_key);
+		if (cur_offset + len > array_size)
+			goto out_short_read;
+
 		btrfs_disk_key_to_cpu(&key, disk_key);
 
-		len = sizeof(*disk_key);
-		ptr += len;
+		array_ptr += len;
+		sb_array_offset += len;
+		cur_offset += len;
 
 		if (key.type == BTRFS_CHUNK_ITEM_KEY) {
-			chunk = (struct btrfs_chunk *)(ptr - (u8 *)super_copy);
+			chunk = (struct btrfs_chunk *)sb_array_offset;
+			/*
+			 * At least one btrfs_chunk with one stripe must be
+			 * present, exact stripe count check comes afterwards
+			 */
+			len = btrfs_chunk_item_size(1);
+			if (cur_offset + len > array_size)
+				goto out_short_read;
+
+			num_stripes = btrfs_chunk_num_stripes(sb, chunk);
+			if (!num_stripes) {
+				printk(
+	    "ERROR: invalid number of stripes %u in sys_array at offset %u\n",
+					num_stripes, cur_offset);
+				ret = -EIO;
+				break;
+			}
+
+			len = btrfs_chunk_item_size(num_stripes);
+			if (cur_offset + len > array_size)
+				goto out_short_read;
+
 			ret = read_one_chunk(root, &key, sb, chunk, -1);
 			if (ret)
 				break;
-			num_stripes = btrfs_chunk_num_stripes(sb, chunk);
-			len = btrfs_chunk_item_size(num_stripes);
 		} else {
-			BUG();
+			printk(
+		"ERROR: unexpected item type %u in sys_array at offset %u\n",
+				(u32)key.type, cur_offset);
+ 			ret = -EIO;
+ 			break;
 		}
-		ptr += len;
+		array_ptr += len;
+		sb_array_offset += len;
+		cur_offset += len;
 	}
 	free_extent_buffer(sb);
 	return ret;
+
+out_short_read:
+	printk("ERROR: sys_array too short to read %u bytes at offset %u\n",
+			len, cur_offset);
+	free_extent_buffer(sb);
+	return -EIO;
 }
 
 int btrfs_read_chunk_tree(struct btrfs_root *root)

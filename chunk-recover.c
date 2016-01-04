@@ -1159,9 +1159,9 @@ static int __rebuild_chunk_root(struct btrfs_trans_handle *trans,
 		if (min_devid > dev->devid)
 			min_devid = dev->devid;
 	}
-	disk_key.objectid = BTRFS_DEV_ITEMS_OBJECTID;
-	disk_key.type = BTRFS_DEV_ITEM_KEY;
-	disk_key.offset = min_devid;
+	btrfs_set_disk_key_objectid(&disk_key, BTRFS_DEV_ITEMS_OBJECTID);
+	btrfs_set_disk_key_type(&disk_key, BTRFS_DEV_ITEM_KEY);
+	btrfs_set_disk_key_offset(&disk_key, min_devid);
 
 	cow = btrfs_alloc_free_block(trans, root, root->nodesize,
 				     BTRFS_CHUNK_TREE_OBJECTID,
@@ -1234,7 +1234,7 @@ static int __insert_chunk_item(struct btrfs_trans_handle *trans,
 	key.offset = chunk_rec->offset;
 
 	ret = btrfs_insert_item(trans, chunk_root, &key, chunk,
-				btrfs_chunk_item_size(chunk->num_stripes));
+				btrfs_chunk_item_size(chunk_rec->num_stripes));
 	free(chunk);
 	return ret;
 }
@@ -1607,16 +1607,19 @@ static int btrfs_verify_device_extents(struct block_group_record *bg,
 				       struct list_head *devexts, int ndevexts)
 {
 	struct device_extent_record *devext;
-	u64 strpie_length;
+	u64 stripe_length;
 	int expected_num_stripes;
 
 	expected_num_stripes = calc_num_stripes(bg->flags);
 	if (expected_num_stripes && expected_num_stripes != ndevexts)
 		return 1;
 
-	strpie_length = calc_stripe_length(bg->flags, bg->offset, ndevexts);
+	if (check_num_stripes(bg->flags, ndevexts) < 0)
+		return 1;
+
+	stripe_length = calc_stripe_length(bg->flags, bg->offset, ndevexts);
 	list_for_each_entry(devext, devexts, chunk_list) {
-		if (devext->length != strpie_length)
+		if (devext->length != stripe_length)
 			return 1;
 	}
 	return 0;
