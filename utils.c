@@ -38,6 +38,7 @@
 #include <sys/statfs.h>
 #include <linux/magic.h>
 #include <getopt.h>
+#include <linux/version.h>
 
 #include "kerncompat.h"
 #include "radix-tree.h"
@@ -571,6 +572,9 @@ out:
 	return ret;
 }
 
+#define VERSION_TO_STRING3(a,b,c)	#a "." #b "." #c, KERNEL_VERSION(a,b,c)
+#define VERSION_TO_STRING2(a,b)		#a "." #b, KERNEL_VERSION(a,b,0)
+
 static const struct btrfs_fs_feature {
 	const char *name;
 	u64 flag;
@@ -578,28 +582,35 @@ static const struct btrfs_fs_feature {
 	 * Compatibility with kernel of given version. Filesystem can be
 	 * mounted.
 	 */
-	const char *compat_ver;
+	const char *compat_str;
+	u32 compat_ver;
 	/*
 	 * Considered safe for use and will be turned on by default if
 	 * supported by the running kernel
 	 */
-	const char *default_ver;
+	const char *default_str;
+	u32 default_ver;
 	const char *desc;
 } mkfs_features[] = {
 	{ "mixed-bg", BTRFS_FEATURE_INCOMPAT_MIXED_GROUPS,
-		"2.6.37", NULL,
+		VERSION_TO_STRING3(2,6,37),
+		NULL, 0,
 		"mixed data and metadata block groups" },
 	{ "extref", BTRFS_FEATURE_INCOMPAT_EXTENDED_IREF,
-		"3.7", "3.12",
+		VERSION_TO_STRING2(3,7),
+		VERSION_TO_STRING2(3,12),
 		"increased hardlink limit per file to 65536" },
 	{ "raid56", BTRFS_FEATURE_INCOMPAT_RAID56,
-		"3.9", NULL,
+		VERSION_TO_STRING2(3,9),
+		NULL, 0,
 		"raid56 extended format" },
 	{ "skinny-metadata", BTRFS_FEATURE_INCOMPAT_SKINNY_METADATA,
-		"3.10", "3.18",
+		VERSION_TO_STRING2(3,10),
+		VERSION_TO_STRING2(3,18),
 		"reduced-size metadata extent refs" },
 	{ "no-holes", BTRFS_FEATURE_INCOMPAT_NO_HOLES,
-		"3.14", NULL,
+		VERSION_TO_STRING2(3,14),
+		NULL, 0,
 		"no explicit hole extents for files" },
 	/* Keep this one last */
 	{ "list-all", BTRFS_FEATURE_LIST_ALL, NULL }
@@ -664,12 +675,12 @@ void btrfs_list_all_fs_features(u64 mask_disallowed)
 				mkfs_features[i].name,
 				mkfs_features[i].desc,
 				mkfs_features[i].flag);
-		if (mkfs_features[i].compat_ver)
+		if (mkfs_features[i].compat_str)
 			fprintf(stderr, ", compat=%s",
-					mkfs_features[i].compat_ver);
-		if (mkfs_features[i].default_ver)
+					mkfs_features[i].compat_str);
+		if (mkfs_features[i].default_str)
 			fprintf(stderr, ", default=%s",
-					mkfs_features[i].default_ver);
+					mkfs_features[i].default_str);
 		fprintf(stderr, ")\n");
 	}
 	fprintf(stderr, "\nSynthetic options:\n");
