@@ -672,6 +672,16 @@ void btrfs_list_all_fs_features(u64 mask_disallowed)
 					mkfs_features[i].default_ver);
 		fprintf(stderr, ")\n");
 	}
+	fprintf(stderr, "\nSynthetic options:\n");
+	fprintf(stderr, "compat=<VERSION>    - kernel VERSION and higher can mount such filesystem\n");
+	fprintf(stderr, "default=<VERSION>   - feature is considered safe for use and will be turned\n");
+	fprintf(stderr, "                      on by default on kernel VERSION and higher\n");
+	fprintf(stderr, "compat=running      - set compatibility based on currently running kernel,\n");
+	fprintf(stderr, "                      determined by sysfs features and kernel version as\n");
+	fprintf(stderr, "                      unreliable fallback method\n");
+	fprintf(stderr, "default=running     - set defaults matching currently running kernel,\n");
+	fprintf(stderr, "                      determined by sysfs features and kernel version as\n");
+	fprintf(stderr, "                      unreliable fallback method\n");
 }
 
 /*
