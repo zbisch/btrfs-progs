@@ -106,6 +106,8 @@ void btrfs_list_all_fs_features(u64 mask_disallowed);
 char* btrfs_parse_fs_features(char *namelist, u64 *flags);
 void btrfs_process_fs_features(u64 flags);
 void btrfs_parse_features_to_string(char *buf, u64 flags);
+const char *min_compat_version(u64 features);
+const char *min_default_version(u64 features);
 
 struct btrfs_mkfs_config {
 	char *label;

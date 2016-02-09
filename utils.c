@@ -693,6 +693,9 @@ void btrfs_list_all_fs_features(u64 mask_disallowed)
 	fprintf(stderr, "default=running     - set defaults matching currently running kernel,\n");
 	fprintf(stderr, "                      determined by sysfs features and kernel version as\n");
 	fprintf(stderr, "                      unreliable fallback method\n");
+	fprintf(stderr, "\nDetected compatibility:\n");
+	fprintf(stderr, "compat=%s\n", min_compat_version(0));
+	fprintf(stderr, "default=%s\n", min_default_version(0));
 }
 
 /*
@@ -712,6 +715,42 @@ char* btrfs_parse_fs_features(char *namelist, u64 *flags)
 	}
 
 	return NULL;
+}
+
+const char *min_compat_version(u64 features)
+{
+	u32 minver = KERNEL_VERSION(100,0,0);
+	static const char *minstr = "unknown";
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mkfs_features) - 1; i++) {
+		if (mkfs_features[i].flag & features) {
+			 if (mkfs_features[i].compat_ver < minver) {
+				minver = mkfs_features[i].compat_ver;
+				minstr = mkfs_features[i].compat_str;
+			 }
+		}
+	}
+
+	return minstr;
+}
+
+const char *min_default_version(u64 features)
+{
+	u32 minver = KERNEL_VERSION(100,0,0);
+	static const char *minstr = "unknown";
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mkfs_features) - 1; i++) {
+		if (mkfs_features[i].flag & features) {
+			 if (mkfs_features[i].default_ver < minver) {
+				minver = mkfs_features[i].default_ver;
+				minstr = mkfs_features[i].default_str;
+			 }
+		}
+	}
+
+	return minstr;
 }
 
 u64 btrfs_device_size(int fd, struct stat *st)
