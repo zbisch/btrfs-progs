@@ -578,6 +578,7 @@ out:
 static const struct btrfs_fs_feature {
 	const char *name;
 	u64 flag;
+	const char *sysfs_name;
 	/*
 	 * Compatibility with kernel of given version. Filesystem can be
 	 * mounted.
@@ -593,22 +594,27 @@ static const struct btrfs_fs_feature {
 	const char *desc;
 } mkfs_features[] = {
 	{ "mixed-bg", BTRFS_FEATURE_INCOMPAT_MIXED_GROUPS,
+		"mixed_groups",
 		VERSION_TO_STRING3(2,6,37),
 		NULL, 0,
 		"mixed data and metadata block groups" },
 	{ "extref", BTRFS_FEATURE_INCOMPAT_EXTENDED_IREF,
+		"extended_iref",
 		VERSION_TO_STRING2(3,7),
 		VERSION_TO_STRING2(3,12),
 		"increased hardlink limit per file to 65536" },
 	{ "raid56", BTRFS_FEATURE_INCOMPAT_RAID56,
+		"raid56",
 		VERSION_TO_STRING2(3,9),
 		NULL, 0,
 		"raid56 extended format" },
 	{ "skinny-metadata", BTRFS_FEATURE_INCOMPAT_SKINNY_METADATA,
+		"skinny_metadata",
 		VERSION_TO_STRING2(3,10),
 		VERSION_TO_STRING2(3,18),
 		"reduced-size metadata extent refs" },
 	{ "no-holes", BTRFS_FEATURE_INCOMPAT_NO_HOLES,
+		"no_holes",
 		VERSION_TO_STRING2(3,14),
 		NULL, 0,
 		"no explicit hole extents for files" },
