@@ -39,6 +39,7 @@
 #include <linux/magic.h>
 #include <getopt.h>
 #include <linux/version.h>
+#include <sys/utsname.h>
 
 #include "kerncompat.h"
 #include "radix-tree.h"
@@ -672,6 +673,7 @@ void btrfs_process_fs_features(u64 flags)
 void btrfs_list_all_fs_features(u64 mask_disallowed)
 {
 	int i;
+	u32 running;
 
 	fprintf(stderr, "Filesystem features available:\n");
 	for (i = 0; i < ARRAY_SIZE(mkfs_features) - 1; i++) {
@@ -702,6 +704,13 @@ void btrfs_list_all_fs_features(u64 mask_disallowed)
 	fprintf(stderr, "\nDetected compatibility:\n");
 	fprintf(stderr, "compat=%s\n", min_compat_version(0));
 	fprintf(stderr, "default=%s\n", min_default_version(0));
+	running = get_running_kernel_version();
+	fprintf(stderr, "running=");
+	if (running != (u32)-1)
+		print_kernel_version(stderr, running);
+	else
+		fprintf(stderr, "unknown");
+	fprintf(stderr, "\n");
 }
 
 /*
@@ -757,6 +766,52 @@ const char *min_default_version(u64 features)
 	}
 
 	return minstr;
+}
+void print_kernel_version(FILE *stream, u32 version)
+{
+	u32 v[3];
+
+	v[0] = version & 0xFF;
+	v[1] = (version >> 8) & 0xFF;
+	v[2] = version >> 16;
+	fprintf(stream, "%u.%u", v[2], v[1]);
+	if (v[0])
+		fprintf(stream, ".%u", v[0]);
+}
+
+u32 get_running_kernel_version(void)
+{
+	struct utsname utsbuf;
+	char *tmp;
+	char *saveptr = NULL;
+	u32 version;
+
+	uname(&utsbuf);
+	if (strcmp(utsbuf.sysname, "Linux") != 0) {
+		error("Unsupported system: %s\n", utsbuf.sysname);
+		exit(1);
+	}
+	/* 1.2.3-4-name */
+	tmp = strchr(utsbuf.release, '-');
+	if (tmp)
+		*tmp = 0;
+
+	tmp = strtok_r(utsbuf.release, ".", &saveptr);
+	if (!string_is_numerical(tmp))
+		return (u32)-1;
+	version = atoi(tmp) << 16;
+	tmp = strtok_r(NULL, ".", &saveptr);
+	if (!string_is_numerical(tmp))
+		return (u32)-1;
+	version |= atoi(tmp) << 8;
+	tmp = strtok_r(NULL, ".", &saveptr);
+	if (tmp) {
+		if (!string_is_numerical(tmp))
+			return (u32)-1;
+		version |= atoi(tmp);
+	}
+
+	return version;
 }
 
 u64 btrfs_device_size(int fd, struct stat *st)
