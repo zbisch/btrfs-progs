@@ -1441,7 +1441,25 @@ int main(int argc, char **argv)
 				}
 				free(orig);
 				if (features & BTRFS_FEATURE_LIST_ALL) {
+					u64 detected;
+					char features_buf[64];
+
 					btrfs_list_all_fs_features(0);
+					ret = get_sysfs_features(&detected);
+					if (ret < 0) {
+						error("cannot detect features: %s",
+								strerror(-ret));
+					} else if (ret == 1) {
+						error(
+	"/sys/fs/btrfs not present, module not loaded or lack of btrfs support");
+					} else {
+						btrfs_parse_features_to_string(
+								features_buf,
+								detected);
+						fprintf(stderr,
+					"\nFeatures from running kernel: %s\n",
+							features_buf);
+					}
 					exit(0);
 				}
 				break;

@@ -814,6 +814,43 @@ u32 get_running_kernel_version(void)
 	return version;
 }
 
+/*
+ * Look for features exported via sysfs.
+ * Return
+ * 0   - no error
+ * 1   - /sys/fs/btrfs no present
+ * < 0 - other error, return last errno
+ */
+int get_sysfs_features(u64 *features)
+{
+	struct stat st;
+	char pathbuf[PATH_MAX];
+	int ret;
+	int i;
+
+	ret = stat("/sys/fs/btrfs", &st);
+	if (ret < 0) {
+		if (errno == ENOENT)
+			return 1;
+		return -errno;
+	}
+	*features = 0;
+	for (i = 0; i < ARRAY_SIZE(mkfs_features) - 1; i++) {
+		snprintf(pathbuf, sizeof(pathbuf),
+			"/sys/fs/btrfs/features/%s",
+			mkfs_features[i].sysfs_name);
+		ret = stat(pathbuf, &st);
+		if (ret < 0) {
+			if (errno == ENOENT)
+				continue;
+			return -errno;
+		}
+		*features |= mkfs_features[i].flag;
+	}
+
+	return 0;
+}
+
 u64 btrfs_device_size(int fd, struct stat *st)
 {
 	u64 size;
