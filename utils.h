@@ -111,6 +111,7 @@ const char *min_default_version(u64 features);
 void print_kernel_version(FILE *stream, u32 version);
 u32 get_running_kernel_version(void);
 int get_sysfs_features(u64 *features);
+u64 set_default_features_by_version(u32 version);
 
 struct btrfs_mkfs_config {
 	char *label;

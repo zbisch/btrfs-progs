@@ -851,6 +851,20 @@ int get_sysfs_features(u64 *features)
 	return 0;
 }
 
+u64 set_default_features_by_version(u32 version)
+{
+	u64 features = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mkfs_features) - 1; i++) {
+		if (mkfs_features[i].default_ver &&
+				mkfs_features[i].default_ver < version)
+			features |= mkfs_features[i].flag;
+	}
+
+	return features;
+}
+
 u64 btrfs_device_size(int fd, struct stat *st)
 {
 	u64 size;

@@ -1368,9 +1368,24 @@ int main(int argc, char **argv)
 	int dev_cnt = 0;
 	int saved_optind;
 	char fs_uuid[BTRFS_UUID_UNPARSED_SIZE] = { 0 };
-	u64 features = BTRFS_MKFS_DEFAULT_FEATURES;
+	u64 features;
+	u64 sysfs_features;
+	char features_buf[64];
 	struct mkfs_allocation allocation = { 0 };
 	struct btrfs_mkfs_config mkfs_cfg;
+	u32 version;
+
+	ret = get_sysfs_features(&sysfs_features);
+	if (ret) {
+		error("cannot find defaults, no /sys/fs/btrfs");
+		exit(1);
+	}
+	btrfs_parse_features_to_string(features_buf, sysfs_features);
+	version = get_running_kernel_version();
+	features = set_default_features_by_version(version);
+	btrfs_parse_features_to_string(features_buf, features);
+	features &= sysfs_features;
+	btrfs_parse_features_to_string(features_buf, features);
 
 	while(1) {
 		int c;
@@ -1442,7 +1457,6 @@ int main(int argc, char **argv)
 				free(orig);
 				if (features & BTRFS_FEATURE_LIST_ALL) {
 					u64 detected;
-					char features_buf[64];
 
 					btrfs_list_all_fs_features(0);
 					ret = get_sysfs_features(&detected);
@@ -1684,6 +1698,13 @@ int main(int argc, char **argv)
 			"WARNING: metatdata has lower redundancy than data!\n\n");
 	}
 
+	/* TODO: add to summary */
+	/* Running wants more defaults than sysfs allows */
+	if (features & ~sysfs_features) {
+		btrfs_parse_features_to_string(features_buf, features & ~sysfs_features);
+		warning("requesting features that running kernel does not support: %s\n", features_buf);
+	}
+
 	mkfs_cfg.label = label;
 	mkfs_cfg.fs_uuid = fs_uuid;
 	memcpy(mkfs_cfg.blocks, blocks, sizeof(blocks));
@@ -1821,8 +1842,6 @@ raid_groups:
 	}
 
 	if (verbose) {
-		char features_buf[64];
-
 		printf("Label:              %s\n", label);
 		printf("UUID:               %s\n", fs_uuid);
 		printf("Node size:          %u\n", nodesize);
