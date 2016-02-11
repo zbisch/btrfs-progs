@@ -16,18 +16,6 @@
  * Boston, MA 021110-1307, USA.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <uuid/uuid.h>
-#include <getopt.h>
-
-#include "kerncompat.h"
-#include "radix-tree.h"
-#include "ctree.h"
-#include "disk-io.h"
-#include "print-tree.h"
-#include "transaction.h"
 #include "volumes.h"
 #include "utils.h"
 #include "commands.h"
@@ -41,6 +29,8 @@ int main(int ac, char **av)
 
 	if (ac > 1 && !strcmp(av[1], "--help"))
 		usage(cmd_inspect_dump_tree_usage);
+
+	radix_tree_init();
 
 	ret = cmd_inspect_dump_tree(ac, av);
 

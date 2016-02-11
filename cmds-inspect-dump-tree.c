@@ -128,8 +128,6 @@ int cmd_inspect_dump_tree(int ac, char **av)
 	struct btrfs_root *tree_root_scan;
 	u64 tree_id = 0;
 
-	radix_tree_init();
-
 	while (1) {
 		int c;
 		static const struct option long_options[] = {
