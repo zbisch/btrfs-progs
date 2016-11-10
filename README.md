@@ -1,4 +1,4 @@
-Btrfs-progs
+Btrfs-progs [![build status](https://travis-ci.org/kdave/btrfs-progs.svg?branch=devel)](https://travis-ci.org/kdave/btrfs-progs) [![coverity status](https://scan.coverity.com/projects/617/badge.svg)](https://scan.coverity.com/projects/btrfs-progs)
 ===========
 
 Userspace utilities to manage btrfs filesystems.
@@ -14,7 +14,8 @@ This repository hosts following utilities:
 * **btrfs** &mdash; the main administration tool ([manual page](https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs))
 * **mkfs.btrfs** &mdash; utility to create the filesystem ([manual page](https://btrfs.wiki.kernel.org/index.php/Manpage/mkfs.btrfs))
 
-See INSTALL for build instructions.
+See INSTALL for build instructions and [tests/README.md](tests/README.md) for
+testing information.
 
 Release cycle
 -------------
@@ -28,7 +29,7 @@ Development
 -----------
 
 The patch submissions, development or general discussions take place at
-*linux-btrfs@vger.kernel.org* mailinglist, subsciption not required.
+*linux-btrfs@vger.kernel.org* mailinglist, subsciption is not required to post.
 
 References
 ----------
