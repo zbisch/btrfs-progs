@@ -39,6 +39,9 @@ branches:
   - master
   - release-test
 
+services:
+  - docker
+
 env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
@@ -48,6 +51,7 @@ env:
 before_install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq e2fslibs-dev gcc libacl1-dev libblkid-dev liblzo2-dev make pkg-config udev zlib1g-dev acl attr reiserfsprogs
+  - docker pull laks/btrfs_armv8
   - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
   - "mkdir tmp-reiser;
      cd tmp-reiser;
@@ -81,6 +85,7 @@ addons:
     branch_pattern: coverity_scan
 
 script:
+  - docker run -it --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "./autogen.sh && configure --disable-documentation && make && make TEST_LOG=dump test-cli"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-cli; fi"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-mkfs; fi"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-check; fi"
