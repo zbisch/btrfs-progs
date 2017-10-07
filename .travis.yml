@@ -45,52 +45,11 @@ services:
 
 env:
   global:
-   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
-   #   via the "travis encrypt" command using the project repo's public key
-   - secure: "aOqVfsh0m0iR3ggfuqhri4RHZK1LkQPDfNvPPQLN6VwJnz9QrI7TvLovTM1JwfX+nkyNhRq33+OahQb7PEHWPctFo6o42CcN837syF2fg8ZhTmcU1abJL29GUN/bH3xZXJJoUNJUW79Bp098GEcEmypxJ29Fxs5FQKT57O2FnnJXQLZhsDvSC1tuHtHEnCU1EGmZ6g4QI+eaS3zxKr343WCwRX6xolKHaLZX/UsYMbIMJ1YBaK2zCyOpaXOflQbloI1gcrUcoalIFuwPVbYnu2oXqzsuzHV0ekN+zMAECDNYrTr/OEA0bLR57WC0krLiAr+tA6Rq5E1D6JHg3WxDE7tbuFmrhxW23S9x6xw4+L5KuwNdsIZEdybn4q6zCkkHH3PgOFRF8taxxHKsfJ9fWxZM/kvQa5CNClDrZmfso9U8yWrYgL6fi3fIcuVLE29N2K0v9LkWlsK0REn5/uiEKO5rJ25ytpzCoUg9IRRgMPJaoPtZhSrK+ywZlJqg3f5eRqA7W1A4AEK5cOmWGFW2MOGmTtzhHG/xY0yaPYxgB7u2b7ji8BQdOn3p0ttmBFBxbDChb3LUH+d21iORrYVTG3IDziQTdBLCn/ZUypcLlLXLkkgZMQ9kLhArRmuqlTqPoR2+GNVjRP/uxwZXcszvEb0TATI11rieJW6TN1inWgY="
    - SRC_DIR=/build/btrfs-progs
 
 before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq e2fslibs-dev gcc libacl1-dev libblkid-dev liblzo2-dev make pkg-config udev zlib1g-dev acl attr reiserfsprogs
   - docker pull laks/btrfs_armv8
-  - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
-  - "mkdir tmp-reiser;
-     cd tmp-reiser;
-     wget https://www.kernel.org/pub/linux/kernel/people/jeffm/reiserfsprogs/v3.6.27/reiserfsprogs-3.6.27.tar.xz;
-     tar xf reiserfsprogs-3.6.27.tar.xz;
-     cd reiserfsprogs-3.6.27;
-     ./configure --prefix=/usr;
-     make all;
-     sudo make install;
-     cd ../..
-    "
-  - "mkdir tmp-zstd;
-     cd tmp-zstd;
-     wget https://github.com/facebook/zstd/archive/v1.3.1.tar.gz;
-     tar xf v1.3.1.tar.gz;
-     cd zstd-1.3.1;
-     make;
-     sudo make install PREFIX=/usr;
-     cd ../..
-    "
-  - "./autogen.sh && ./configure --disable-documentation && make"
-
-addons:
-  coverity_scan:
-    project:
-      name: "kdave/btrfs-progs"
-      description: "btrfs-progs"
-    notification_email: dsterba@suse.cz
-    build_command_prepend: "./autogen.sh && ./configure --disable-documentation"
-    build_command: "make"
-    branch_pattern: coverity_scan
 
 script:
   - docker run -it --privileged=true multiarch/qemu-user-static:register --reset
-  - docker run --privileged=true --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "./autogen.sh && ./configure --disable-documentation && make && make TEST_LOG=dump test-cli"
-  - "if ./travis-should-run-test; then make TEST_LOG=dump test-cli; fi"
-  - "if ./travis-should-run-test; then make TEST_LOG=dump test-mkfs; fi"
-  - "if ./travis-should-run-test; then make TEST_LOG=dump test-check; fi"
-  - "if ./travis-should-run-test; then make TEST_LOG=dump test-misc; fi"
-  - "if [ $TRAVIS_BRANCH = release-test ]; then make TEST_LOG=dump test-convert; fi"
+  - docker run --privileged=true --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "uname -a;btrfs --version"
