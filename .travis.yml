@@ -52,4 +52,4 @@ before_install:
 
 script:
   - docker run -it --privileged=true multiarch/qemu-user-static:register --reset
-  - docker run --privileged=true --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "uname -a;btrfs --version"
+  - docker run --privileged=true laks/btrfs_armv8
