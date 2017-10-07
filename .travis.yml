@@ -38,6 +38,7 @@ branches:
   - coverity_scan
   - master
   - release-test
+  - test-travis-docker
 
 services:
   - docker
