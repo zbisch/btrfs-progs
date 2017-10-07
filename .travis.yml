@@ -48,6 +48,7 @@ env:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
    #   via the "travis encrypt" command using the project repo's public key
    - secure: "aOqVfsh0m0iR3ggfuqhri4RHZK1LkQPDfNvPPQLN6VwJnz9QrI7TvLovTM1JwfX+nkyNhRq33+OahQb7PEHWPctFo6o42CcN837syF2fg8ZhTmcU1abJL29GUN/bH3xZXJJoUNJUW79Bp098GEcEmypxJ29Fxs5FQKT57O2FnnJXQLZhsDvSC1tuHtHEnCU1EGmZ6g4QI+eaS3zxKr343WCwRX6xolKHaLZX/UsYMbIMJ1YBaK2zCyOpaXOflQbloI1gcrUcoalIFuwPVbYnu2oXqzsuzHV0ekN+zMAECDNYrTr/OEA0bLR57WC0krLiAr+tA6Rq5E1D6JHg3WxDE7tbuFmrhxW23S9x6xw4+L5KuwNdsIZEdybn4q6zCkkHH3PgOFRF8taxxHKsfJ9fWxZM/kvQa5CNClDrZmfso9U8yWrYgL6fi3fIcuVLE29N2K0v9LkWlsK0REn5/uiEKO5rJ25ytpzCoUg9IRRgMPJaoPtZhSrK+ywZlJqg3f5eRqA7W1A4AEK5cOmWGFW2MOGmTtzhHG/xY0yaPYxgB7u2b7ji8BQdOn3p0ttmBFBxbDChb3LUH+d21iORrYVTG3IDziQTdBLCn/ZUypcLlLXLkkgZMQ9kLhArRmuqlTqPoR2+GNVjRP/uxwZXcszvEb0TATI11rieJW6TN1inWgY="
+   - SRC_DIR=/build/btrfs-progs
 
 before_install:
   - sudo apt-get update -qq
@@ -86,7 +87,8 @@ addons:
     branch_pattern: coverity_scan
 
 script:
-  - docker run -it --privileged=true multiarch/qemu-user-static:register --reset --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "./autogen.sh && configure --disable-documentation && make && make TEST_LOG=dump test-cli"
+  - docker run -it --privileged=true multiarch/qemu-user-static:register --reset
+  - docker run --privileged=true --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8 sh -c "./autogen.sh && ./configure --disable-documentation && make && make TEST_LOG=dump test-cli"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-cli; fi"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-mkfs; fi"
   - "if ./travis-should-run-test; then make TEST_LOG=dump test-check; fi"
