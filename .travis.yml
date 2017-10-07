@@ -45,11 +45,11 @@ services:
 
 env:
   global:
-   - SRC_DIR=/build/btrfs-progs
+   - SRC_DIR=/btrfs-progs
 
 before_install:
-  - docker pull laks/btrfs_armv8
+  - docker pull laks/btrfs_armv6
 
 script:
   - sudo docker run -it --privileged=true multiarch/qemu-user-static:register --reset
-  - sudo docker run --privileged=true laks/btrfs_armv8
+  - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true laks/btrfs_armv6  sh -c "./autogen.sh"
