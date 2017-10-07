@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 Roman Lebedev.
+# Copyright (C) 2017 Lakshmipathi.G
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public
@@ -51,5 +51,8 @@ before_install:
   - docker pull laks/btrfs_armv6
 
 script:
+  # Prepare QEMU
   - sudo docker run -it --privileged=true multiarch/qemu-user-static:register --reset
+
+  # Launch container
   - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv6  sh -c "./autogen.sh && ./configure --disable-documentation && make && make install && btrfs --version"
