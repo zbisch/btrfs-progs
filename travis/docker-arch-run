@@ -22,6 +22,9 @@ case "$arch" in
 	*) echo "ERROR: unknown architecture: $arch"; exit 1;;
 esac
 
+#ignore arm6/arm8
+shift
+
 sudo docker run --volume "$TRAVIS_BUILD_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
 	--privileged=true		\
 	--device=/dev/loop0:/dev/loop0	\
