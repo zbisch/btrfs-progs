@@ -50,12 +50,15 @@ env:
 
 before_install:
   - docker pull laks/btrfs_armv6
-  - docker pull laks/btrfs_armv8
+  #- docker pull laks/btrfs_armv8
 
 script:
   # Prepare QEMU
   - sudo docker run -it --privileged=true multiarch/qemu-user-static:register --reset
 
   # Launch container
-  - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv6  sh -c "./autogen.sh && ./configure --disable-documentation && make && make install && btrfs --version"
-  - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8  sh -c "./autogen.sh && ./configure --disable-documentation && make && make install && btrfs --version"
+   - travis/docker-arch-run arm6 make TEST_LOG=dump test-cli
+   #- travis/docker-arch-run arm8 make TEST_LOG=dump test-cli
+
+#  - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv6  sh -c "./autogen.sh && ./configure --disable-documentation && make && make install && btrfs --version"
+ # - sudo docker run --volume $TRAVIS_BUILD_DIR:$SRC_DIR --workdir $SRC_DIR --privileged=true --device=/dev/loop0:/dev/loop0 --device=/dev/loop1:/dev/loop1 --device=/dev/loop2:/dev/loop2 --device=/dev/loop3:/dev/loop3 --device=/dev/loop4:/dev/loop4 laks/btrfs_armv8  sh -c "./autogen.sh && ./configure --disable-documentation && make && make install && btrfs --version"

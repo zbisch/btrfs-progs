@@ -1,0 +1,35 @@
+#!/bin/sh
+# usage: $0 arch commands..
+#
+# run given commands in a docker container, prepended with the default
+# configuration and bulid steps
+#
+# arguments:
+# arch -- specify architecture, must be available in a container and pulled to
+#         the environment already
+#         - arm6
+#         - arm8
+
+arch="$1"
+if [ -z "$arch" ]; then
+	echo "ERROR: no architecture given"
+	exit 1
+fi
+
+case "$arch" in
+	arm6) container=laks/btrfs_armv6;;
+	arm8) container=laks/btrfs_armv8;;
+	*) echo "ERROR: unknown architecture: $arch"; exit 1;;
+esac
+
+sudo docker run --volume "$TRAVIS_BUILD_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
+	--privileged=true		\
+	--device=/dev/loop0:/dev/loop0	\
+	--device=/dev/loop1:/dev/loop1	\
+	--device=/dev/loop2:/dev/loop2	\
+	--device=/dev/loop3:/dev/loop3	\
+	--device=/dev/loop4:/dev/loop4	\
+	--device=/dev/loop5:/dev/loop5	\
+	--device=/dev/loop6:/dev/loop6	\
+	--device=/dev/loop7:/dev/loop7	\
+$container sh -c "./autogen.sh && ./configure --disable-documentation && make V=1 && $@"
