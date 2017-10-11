@@ -47,12 +47,12 @@ services:
 env:
   global:
    - SRC_DIR=/btrfs-progs
-   - REPO_DIR=`basename $TRAVIS_BUILD_DIR`/btrfs_repo
 
 before_install:
   - docker pull laks/btrfs_armv6
  # - docker pull laks/btrfs_armv8
   - sudo apt-get install -qq e2fslibs-dev gcc libacl1-dev libblkid-dev liblzo2-dev make pkg-config udev zlib1g-dev acl attr reiserfsprogs
+  - REPO_DIR=`dirname $TRAVIS_BUILD_DIR`/repo
   - cp -r $TRAVIS_BUILD_DIR $REPO_DIR
 
 script:
