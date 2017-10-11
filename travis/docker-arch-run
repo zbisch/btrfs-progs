@@ -9,6 +9,7 @@
 #         the environment already
 #         - arm6
 #         - arm8
+REPO_DIR=`dirname $TRAVIS_BUILD_DIR`/repo
 
 arch="$1"
 if [ -z "$arch" ]; then
