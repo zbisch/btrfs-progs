@@ -35,4 +35,4 @@ sudo docker run --volume "$TRAVIS_BUILD_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
 	--device=/dev/loop5:/dev/loop5	\
 	--device=/dev/loop6:/dev/loop6	\
 	--device=/dev/loop7:/dev/loop7	\
-$container sh -c "./autogen.sh && ./configure --disable-documentation && make V=1 && make TEST_LOG=dump test-cli"
+$container sh -c "./autogen.sh && ./configure --disable-documentation && make V=1 && '$@'"
