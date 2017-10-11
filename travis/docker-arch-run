@@ -25,7 +25,7 @@ esac
 #ignore arm6/arm8
 shift
 
-sudo docker run --volume "$TRAVIS_BUILD_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
+sudo docker run --volume "$REPO_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
 	--privileged=true		\
 	--device=/dev/loop0:/dev/loop0	\
 	--device=/dev/loop1:/dev/loop1	\
