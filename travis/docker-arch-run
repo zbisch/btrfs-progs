@@ -36,4 +36,4 @@ sudo docker run --volume "$REPO_DIR:$SRC_DIR" --workdir "$SRC_DIR" \
 	--device=/dev/loop5:/dev/loop5	\
 	--device=/dev/loop6:/dev/loop6	\
 	--device=/dev/loop7:/dev/loop7	\
-$container sh -c "./autogen.sh && ./configure --disable-documentation && make V=1 && $@"
+$container sh -c "./autogen.sh && ./configure --disable-documentation && make"
